@@ -12,7 +12,8 @@
 	url = https://github.com/g-oikonomou/sensniff.git
 [submodule "tools/cooja"]
 	path = tools/cooja
-	url = https://github.com/nfi/cooja.git
+	url = https://github.com/sungminlee114/cooja.git
+	branch = multi-trace
 [submodule "os/net/security/tinydtls"]
 	path = os/net/security/tinydtls
 	url = https://github.com/contiki-ng/tinydtls.git
