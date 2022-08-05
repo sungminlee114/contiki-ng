@@ -51,8 +51,7 @@ struct icmp6_stats {
 };
 
 extern struct icmp6_stats icmp6_stats;
-extern bool icmp6_stats_sink_hole;
-extern bool icmp6_stats_drop_fwd_udp;
+extern bool icmp6_stats_flooding_attack;
 
 void icmp6_stats_init(void);
 
