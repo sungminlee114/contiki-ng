@@ -76,3 +76,5 @@ create_contiki_container.bat
 resume_contiki_container.bat
 
 .vscode/
+
+*.pcap
