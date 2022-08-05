@@ -51,7 +51,9 @@
 struct icmp6_stats icmp6_stats;
 bool icmp6_stats_sink_hole = false;
 bool icmp6_stats_drop_fwd_udp = false;
+// Note! By Makefile.include, the default setting is ROUTING_CONF_RPL_LITE 1
 /*---------------------------------------------------------------------------*/
+/* Check if the sender is the node's parent.  */
 static bool
 is_parent(const uip_ipaddr_t *addr, uint8_t instance_id, bool compare_mac)
 {
@@ -82,6 +84,7 @@ is_parent(const uip_ipaddr_t *addr, uint8_t instance_id, bool compare_mac)
 #endif
 }
 /*---------------------------------------------------------------------------*/
+/* Convert the IPv6 protocol from uint8_t to string */
 static const char *
 get_proto_as_string(uint8_t proto)
 {
@@ -192,6 +195,7 @@ ip_input(void)
   enum netstack_ip_action action = NETSTACK_IP_PROCESS;
 
   header = uipbuf_get_last_header(uip_buf, uip_len, &proto);
+  // This can be either UDP(Maybe datapacket) or ICMP6(Maybe RPL control message)
   LOG_INFO("Incoming %s packet from ", get_proto_as_string(proto));
   LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
   LOG_INFO_("\n");
@@ -200,6 +204,8 @@ ip_input(void)
     icmp6_stats.total_recv++;
     if(icmp_hdr->type == ICMP6_RPL) {
       icmp6_stats.rpl_total_recv++;
+      
+      // Branch by type of received RPL control message
       switch(icmp_hdr->icode) {
       case RPL_CODE_DIS:
         action = process_dis_input(icmp_hdr);
