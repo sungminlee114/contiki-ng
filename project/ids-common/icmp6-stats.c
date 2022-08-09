@@ -127,19 +127,19 @@ process_dio_input(struct uip_icmp_hdr *hdr)
   }
 
 // #if ATTACK_DROP_DIO
-  // if(icmp6_stats_sink_hole) {
-  //   uint8_t *payload = (uint8_t *)(hdr + 1);
-  //   if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], false)) {
-  //     LOG_INFO("allowing DIO from parent ");
-  //     LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-  //     LOG_INFO_("\n");
-  //   } else {
-  //     LOG_INFO("dropping DIO from ");
-  //     LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-  //     LOG_INFO_("\n");
-  //     return NETSTACK_IP_DROP;
-  //   }
-  // }
+  if(icmp6_stats_flooding_attack) {
+    // uint8_t *payload = (uint8_t *)(hdr + 1);
+    // if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], false)) {
+    //   LOG_INFO("allowing DIO from parent ");
+    //   LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+    //   LOG_INFO_("\n");
+    // } else {
+      LOG_INFO("dropping DIO from ");
+      LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
+      LOG_INFO_("\n");
+      return NETSTACK_IP_DROP;
+    // }
+  }
 // #endif /* ATTACK_DROP_DIO */
 
   return NETSTACK_IP_PROCESS;
@@ -226,7 +226,6 @@ ip_input(void)
 static void
 process_dis_output(struct uip_icmp_hdr *hdr)
 {
-  LOG_INFO("process_dis_output\n");
   if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
     /* Multicast */
     icmp6_stats.dis_mc_sent++;

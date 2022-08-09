@@ -62,18 +62,18 @@ static
 PT_THREAD(cmd_attack(struct pt *pt, shell_output_func output, char *args))
 {
   PT_BEGIN(pt);
-  SHELL_OUTPUT(output, "SINK HOLE ATTACK IS STARTED!\n");
+  SHELL_OUTPUT(output, "FLOODING ATTACK IS STARTED!\n");
   icmp6_stats_flooding_attack = true;
-  rpl_timers_dio_reset("SINK HOLE ATTACK IS STARTED!");
+  rpl_timers_dio_reset("FLOODING ATTACK IS STARTED!");
   PT_END(pt);
 }
 static
 PT_THREAD(cmd_stop_attack(struct pt *pt, shell_output_func output, char *args))
 {
   PT_BEGIN(pt);
-  SHELL_OUTPUT(output, "SINK HOLE ATTACK IS FINISHED!\n");
+  SHELL_OUTPUT(output, "FLOODING ATTACK IS FINISHED!\n");
   icmp6_stats_flooding_attack = false;
-  rpl_timers_dio_reset("SINK HOLE ATTACK IS FINISHED!");
+  rpl_timers_dio_reset("FLOODING ATTACK IS FINISHED!");
   PT_END(pt);
 }
 /*---------------------------------------------------------------------------*/
