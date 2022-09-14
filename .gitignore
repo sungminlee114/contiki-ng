@@ -78,3 +78,5 @@ resume_contiki_container.bat
 .vscode/
 
 *.pcap
+*.csv
+*.class
