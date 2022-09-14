@@ -205,7 +205,7 @@ def main(parser=None):
         trace = CoojaTrace(conopts.input)
         if conopts.summary:
             trace.print_summary()
-        return trace
+        return trace, conopts.input
     except (OSError, IOError, coojautils.ParseException):
         traceback.print_exc()
         sys.exit(f"Failed to parse Cooja traces: {conopts.input}")

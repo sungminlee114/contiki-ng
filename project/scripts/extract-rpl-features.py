@@ -5,25 +5,28 @@ import sys
 
 import coojatrace
 from humanfriendly.tables import format_pretty_table
-
+import subprocess
 
 def write_csv(trace, csv_file, columns, data):
     if trace.is_file(csv_file):
         print(f'Warning: the CSV file "{csv_file}" already exists!', file=sys.stderr)
-    else:
-        with trace.get_log_writer(csv_file) as f:
-            w = csv.writer(f, delimiter=';', quotechar='"')
-            w.writerow(columns)
-            for d in data:
-                w.writerow(d)
+    
+    with trace.get_log_writer(csv_file, overwrite=True) as f:
+        w = csv.writer(f, delimiter=';', quotechar='"')
+        w.writerow(columns)
+        for d in data:
+            w.writerow(d)
 
 
 def main():
-    trace = coojatrace.main()
+    from plot import plot
+    import os
+    trace, simulation_logdir = coojatrace.main()
 
     network_events = trace.get_events(event_type='network', description='steady-state')
     network_stable_time = network_events[0].time if network_events else 0
-
+    # network_stable_time = 0 # From the start
+    
     motes = {}
     data = []
     p = re.compile(r'.*DATA: (.+)$')
@@ -40,7 +43,9 @@ def main():
             if last:
                 row = row[:5] + [x - y for x, y in zip(row[5:], last[5:])]
             else:
-                row = row[:5] + [0] * 6
+                pass
+                # row = row[:5] + [0] * 6
+            
             data.append(row)
 
     # Print 20 first values
@@ -51,8 +56,18 @@ def main():
         print(f"Only showing 20 first rows - remaining {len(data) - 20} rows not shown.")
 
     # Save statistics to CSV file
-    write_csv(trace, 'rpl-statistics.csv', column_names, data)
+    csv_name = 'rpl-statistics.csv'
+    write_csv(trace, csv_name, column_names, data)
+    
+    m = re.search(r'rpl-udp-base-.*$', simulation_logdir)
+    sim_name = m.group()
+    
+    plot(os.path.join(simulation_logdir, csv_name), sim_name)
 
 
 if __name__ == '__main__':
     main()
+    
+    
+    
+    
