@@ -66,11 +66,11 @@ def run_simulation(cooja_file, output_path=None):
                f" -datatrace={target_basename}")
     sys.stdout.write(f"  Running Cooja:\n    {command}\n")
 
-    start_time = time.perf_counter_ns()
+    start_time = time.time()
     (return_code, output) = _run_command(command)
-    end_time = time.perf_counter_ns()
+    end_time = time.time()
     with open(cooja_log, 'a') as f:
-        f.write(f'\nSimulation execution time: {end_time - start_time} ns.\n')
+        f.write(f'\nSimulation execution time: {end_time - start_time} s.\n')
 
     if not os.path.isdir(target_basename):
         os.mkdir(target_basename)
