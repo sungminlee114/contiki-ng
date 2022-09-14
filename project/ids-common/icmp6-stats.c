@@ -46,41 +46,41 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 struct icmp6_stats icmp6_stats;
-bool icmp6_stats_flooding_attack = false;
+bool flooding_attack_drop_dio = false;
 
 // Note! By Makefile.include, the default setting is ROUTING_CONF_RPL_LITE 1
 /*---------------------------------------------------------------------------*/
 
-/* Check if the sender is the node's parent.  */
-static bool
-is_parent(const uip_ipaddr_t *addr, uint8_t instance_id, bool compare_mac)
-{
-#if ROUTING_CONF_RPL_LITE
-  uip_ipaddr_t *parent;
-  parent = rpl_neighbor_get_ipaddr(curr_instance.dag.preferred_parent);
-  if(parent == NULL) {
-    return false;
-  }
-  if(compare_mac) {
-    return memcmp(&addr->u8[8], &parent->u8[8], 8) == 0;
-  }
-  return uip_ipaddr_cmp(addr, parent);
-#elif ROUTING_CONF_RPL_CLASSIC
-  rpl_instance_t *instance;
-  rpl_parent_t *parent;
+// /* Check if the sender is the node's parent.  */
+// static bool
+// is_parent(const uip_ipaddr_t *addr, uint8_t instance_id, bool compare_mac)
+// {
+// #if ROUTING_CONF_RPL_LITE
+//   uip_ipaddr_t *parent;
+//   parent = rpl_neighbor_get_ipaddr(curr_instance.dag.preferred_parent);
+//   if(parent == NULL) {
+//     return false;
+//   }
+//   if(compare_mac) {
+//     return memcmp(&addr->u8[8], &parent->u8[8], 8) == 0;
+//   }
+//   return uip_ipaddr_cmp(addr, parent);
+// #elif ROUTING_CONF_RPL_CLASSIC
+//   rpl_instance_t *instance;
+//   rpl_parent_t *parent;
 
-  instance = rpl_get_instance(instance_id);
-  if(instance == NULL) {
-    return false;
-  }
-  if(RPL_IS_STORING(instance)) {
-    return rpl_find_parent(instance->current_dag, addr) != NULL;
-  }
-#error Not yet implemented!
-#else /* Not RPL */
-  return true;
-#endif
-}
+//   instance = rpl_get_instance(instance_id);
+//   if(instance == NULL) {
+//     return false;
+//   }
+//   if(RPL_IS_STORING(instance)) {
+//     return rpl_find_parent(instance->current_dag, addr) != NULL;
+//   }
+// #error Not yet implemented!
+// #else /* Not RPL */
+//   return true;
+// #endif
+// }
 /*---------------------------------------------------------------------------*/
 /* Convert the IPv6 protocol from uint8_t to string */
 static const char *
@@ -126,8 +126,8 @@ process_dio_input(struct uip_icmp_hdr *hdr)
     icmp6_stats.dio_uc_recv++;
   }
 
-// #if ATTACK_DROP_DIO
-  if(icmp6_stats_flooding_attack) {
+  // Drop DIO packet. No use after stable network
+  if(flooding_attack_drop_dio) {
     // uint8_t *payload = (uint8_t *)(hdr + 1);
     // if(is_parent(&UIP_IP_BUF->srcipaddr, payload[0], false)) {
     //   LOG_INFO("allowing DIO from parent ");
@@ -140,7 +140,6 @@ process_dio_input(struct uip_icmp_hdr *hdr)
       return NETSTACK_IP_DROP;
     // }
   }
-// #endif /* ATTACK_DROP_DIO */
 
   return NETSTACK_IP_PROCESS;
 }
@@ -238,7 +237,6 @@ process_dis_output(struct uip_icmp_hdr *hdr)
 static void
 process_dio_output(struct uip_icmp_hdr *hdr)
 {
-  uint8_t *payload;
 
   if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
     /* Multicast */
@@ -248,6 +246,7 @@ process_dio_output(struct uip_icmp_hdr *hdr)
     icmp6_stats.dio_uc_sent++;
   }
 
+  // uint8_t *payload;
   
 
   // if(icmp6_stats_sink_hole) {

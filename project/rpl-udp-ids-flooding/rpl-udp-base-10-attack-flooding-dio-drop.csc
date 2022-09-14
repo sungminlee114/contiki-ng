@@ -318,6 +318,23 @@ var waiting_for_stable_network = true;
 // Number of clients (the attacker excluded)
 var clients = sim.getMotesCount() - 1;
 
+
+// wait for shell command register and write
+var attacker = sim.getMoteWithID(7);
+
+var msgrecv = /.+INFO: App.+shell_command_set_register.*/;
+var waiting_for_attack = true;
+while(waiting_for_attack){
+  YIELD();
+  if(msg.match(msgrecv)){
+      if(id == attacker.getID()){
+        log.log("dio-drop flooding attack from " + attacker.getID() + "!\n");
+        write(attacker, "dio-drop-attack");
+        waiting_for_attack = false;
+      }
+  }
+}
+
 var msgrecv = /.+INFO: App.+Received +message.+ from ([0-9a-f:]+).*/;
 
 TIMEOUT(4000000, if(success) { log.testOK(); }); /* milliseconds. print last msg at timeout */
@@ -343,6 +360,9 @@ YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 
 sim.getEventCentral().logEvent("network", "steady-state");
 log.log("network steady state!\n");
+
+GENERATE_MSG(5000, "continue");
+YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 
 success = true;
 

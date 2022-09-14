@@ -344,6 +344,13 @@ YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 sim.getEventCentral().logEvent("network", "steady-state");
 log.log("network steady state!\n");
 
+GENERATE_MSG(5000, "continue");
+YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
+
+var attacker = sim.getMoteWithID(7);
+log.log("dis-repeat flooding attack from " + attacker.getID() + "!\n");
+write(attacker, "dis-repeat-attack");
+
 success = true;
 
 GENERATE_MSG(3600000, "continue");
