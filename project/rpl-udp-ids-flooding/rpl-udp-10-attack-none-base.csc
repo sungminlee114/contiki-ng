@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <simconf>
   <project EXPORT="discard">[APPS_DIR]/mrm</project>
   <project EXPORT="discard">[APPS_DIR]/mspsim</project>
@@ -318,26 +318,9 @@ var waiting_for_stable_network = true;
 // Number of clients (the attacker excluded)
 var clients = sim.getMotesCount() - 1;
 
-
-// wait for shell command register and write
-var attacker = sim.getMoteWithID(7);
-
-var msgrecv = /.+INFO: App.+shell_command_set_register.*/;
-var waiting_for_attack = true;
-while(waiting_for_attack){
-  YIELD();
-  if(msg.match(msgrecv)){
-      if(id == attacker.getID()){
-        log.log("dio-drop flooding attack from " + attacker.getID() + "!\n");
-        write(attacker, "dio-drop-attack");
-        waiting_for_attack = false;
-      }
-  }
-}
-
 var msgrecv = /.+INFO: App.+Received +message.+ from ([0-9a-f:]+).*/;
 
-TIMEOUT(4000000, if(success) { log.testOK(); }); /* milliseconds. print last msg at timeout */
+TIMEOUT(5000000, if(success) { log.testOK(); }); /* milliseconds. print last msg at timeout */
 
 while(waiting_for_stable_network) {
     YIELD();
@@ -355,18 +338,15 @@ while(waiting_for_stable_network) {
     }
 }
 
-GENERATE_MSG(2000, "continue");
+GENERATE_MSG(4000, "continue");
 YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 
 sim.getEventCentral().logEvent("network", "steady-state");
 log.log("network steady state!\n");
 
-GENERATE_MSG(5000, "continue");
-YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
-
 success = true;
 
-GENERATE_MSG(3600000, "continue");
+GENERATE_MSG(4000000, "continue");
 YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 
 log.testOK();</script>
@@ -379,4 +359,3 @@ log.testOK();</script>
     <location_y>53</location_y>
   </plugin>
 </simconf>
-

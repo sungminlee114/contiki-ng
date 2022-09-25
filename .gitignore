@@ -80,3 +80,4 @@ resume_contiki_container.bat
 *.pcap
 *.csv
 *.class
+project/rpl-udp-ids-flooding/generated/

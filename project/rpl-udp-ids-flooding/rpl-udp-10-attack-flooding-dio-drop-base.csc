@@ -320,7 +320,7 @@ var clients = sim.getMotesCount() - 1;
 
 var msgrecv = /.+INFO: App.+Received +message.+ from ([0-9a-f:]+).*/;
 
-TIMEOUT(4000000, if(success) { log.testOK(); }); /* milliseconds. print last msg at timeout */
+TIMEOUT(6000000, if(success) { log.testOK(); }); /* milliseconds. print last msg at timeout */
 
 while(waiting_for_stable_network) {
     YIELD();
@@ -338,22 +338,23 @@ while(waiting_for_stable_network) {
     }
 }
 
-GENERATE_MSG(2000, "continue");
+GENERATE_MSG(4000, "continue");
 YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 
 sim.getEventCentral().logEvent("network", "steady-state");
 log.log("network steady state!\n");
 
-GENERATE_MSG(5000, "continue");
-YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
+GENERATE_MSG(4000000, "continue");
 
+GENERATE_MSG(1000000, "start_attack");
 var attacker = sim.getMoteWithID(7);
-log.log("dis-repeat flooding attack from " + attacker.getID() + "!\n");
-write(attacker, "dis-repeat-attack");
+YIELD_THEN_WAIT_UNTIL(msg.equals("start_attack"));
+
+log.log("dio-drop flooding attack from " + attacker.getID() + "!\n");
+write(attacker, "dio-drop-attack");
 
 success = true;
 
-GENERATE_MSG(3600000, "continue");
 YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 
 log.testOK();</script>
