@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import glob
 import os
 import re
 import sys
@@ -192,23 +193,26 @@ class CoojaTrace:
         print(format_pretty_table(data, columns))
 
 
-def main(parser=None):
-    if not parser:
+def main(conopts=None):
+    if not conopts:
         parser = argparse.ArgumentParser()
-    parser.add_argument('-s', action='store_true', dest='summary', default=False)
-    parser.add_argument('input')
+        parser.add_argument('-s', action='store_true', dest='summary', default=False)
+        parser.add_argument('input', type=str)
+    
+        try:
+            conopts = parser.parse_args()
+        except Exception as e:
+            sys.exit(f"Illegal arguments: {str(e)}")
+            
+    input, summary = conopts
     try:
-        conopts = parser.parse_args(sys.argv[1:])
-    except Exception as e:
-        sys.exit(f"Illegal arguments: {str(e)}")
-    try:
-        trace = CoojaTrace(conopts.input)
-        if conopts.summary:
+        trace = CoojaTrace(input)
+        if summary:
             trace.print_summary()
-        return trace, conopts.input
+        return trace, input
     except (OSError, IOError, coojautils.ParseException):
         traceback.print_exc()
-        sys.exit(f"Failed to parse Cooja traces: {conopts.input}")
+        sys.exit(f"Failed to parse Cooja traces: {input}")
 
 
 if __name__ == '__main__':

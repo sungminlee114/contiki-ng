@@ -115,7 +115,6 @@ PROCESS_THREAD(udp_client_process, ev, data)
 {
 
   shell_command_set_register(&client_shell_command_set);
-  LOG_INFO("shell_command_set_register\n");
 
   static struct etimer periodic_timer;
   static uint32_t count;
@@ -149,7 +148,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
     LOG_INFO_(",dior:%"PRIu32",dios:%"PRIu32,
               icmp6_stats.dio_uc_recv + icmp6_stats.dio_mc_recv,
               icmp6_stats.dio_uc_sent + icmp6_stats.dio_mc_sent);
-    LOG_INFO_(",diar:%"PRIu32",tots:%"PRIu32,
+    LOG_INFO_(",diar:%"PRIu32",tots:%"PRIu32"\n",
               icmp6_stats.dao_recv, icmp6_stats.rpl_total_sent);
     // LOG_INFO_(",rssi:%"PRIu32,
     //           cc2420_last_rssi);

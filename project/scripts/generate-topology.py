@@ -23,6 +23,9 @@ def main():
     p.add_argument('--generated-seed', dest='generated_seed', action='store_true', default=False)
     p.add_argument('--topology', dest='topology', default=None)
     p.add_argument('--min-distance', dest='min_distance', type=int, default=0)
+    p.add_argument('--tx_ratio', dest='tx_ratio', type=float, default=1.0)
+    p.add_argument('--rx_ratio', dest='rx_ratio', type=float, default=1.0)
+    
     try:
         conopts = p.parse_args(args)
     except Exception as e:
@@ -35,6 +38,13 @@ def main():
         c.sim.random_seed.set_generated()
 
     radio_medium = c.sim.radio_medium
+    
+    assert(0.0 <= conopts.tx_ratio <= 1.0)
+    radio_medium.success_ratio_tx = conopts.tx_ratio
+    
+    assert(0.0 <= conopts.rx_ratio <= 1.0)
+    radio_medium.success_ratio_rx = conopts.rx_ratio
+    
     tx_range = radio_medium.transmitting_range if isinstance(radio_medium, UDGMRadioMedium) else 50.0
     max_range = tx_range * len(c.sim.get_motes())
     print(f"Using tx range {tx_range} meters with max multihop range of {max_range} meters.")
@@ -48,13 +58,14 @@ def main():
         promote_multihop = False
 
     output_file = conopts.output
-
+    output_file += f"-rx{conopts.rx_ratio}-tx{conopts.tx_ratio}.csc"
+    
     for i in range(0, conopts.count):
         x = y = sx = sy = 0
         motes = []
 
         if conopts.count > 1:
-            output_file = f'{os.path.splitext(conopts.output)[0]}-{i + 1:05}.csc'
+            output_file = f'{os.path.splitext(output_file)[0]}-{i + 1:05}.csc'
         if os.path.exists(output_file):
             print(f'Warning: the output file {output_file} already exists - skipping generation')
             continue

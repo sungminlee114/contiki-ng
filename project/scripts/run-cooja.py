@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import shutil
 import sys
 import os
 import time
@@ -55,15 +56,28 @@ def run_simulation(cooja_file, output_path=None):
         target_basename = target_basename[:-4]
     simulation_id = str(round(time.time() * 1000))
     if output_path is not None:
-        target_basename = os.path.join(output_path, target_basename)
+        target_basename = os.path.join(output_path, os.path.split(target_basename)[1])
+    
+    target_basename = os.path.abspath(target_basename)
     target_basename += '-dt-' + simulation_id
     target_basename_fail = target_basename + '-fail'
-    target_output = target_basename + '/cooja.testlog'
+    target_event_output = target_basename + '/events.log'
     target_log_output = target_basename + '/cooja.log'
 
     # filename = os.path.join(SELF_PATH, cooja_file)
-    command = (f"java -Djava.awt.headless=true -jar {cooja_jar} -nogui={cooja_file} -contiki={CONTIKI_PATH}"
-               f" -datatrace={target_basename}")
+    # command = (f"java -Djava.awt.headless=true -jar {cooja_jar} -nogui={cooja_file} -contiki={CONTIKI_PATH}"
+    #            f" -datatrace={target_basename}")
+    # print(command)
+    
+    command = " ".join([
+        "ant",
+        "run_nogui",
+        f"-Dargs={os.path.abspath(cooja_file)}",
+        f"-Ddatatrace={target_basename}",
+        "-buildfile",
+        "/home/user/contiki-ng/tools/cooja/build.xml",
+    ])
+    
     sys.stdout.write(f"  Running Cooja:\n    {command}\n")
 
     start_time = time.time()
@@ -74,35 +88,39 @@ def run_simulation(cooja_file, output_path=None):
 
     if not os.path.isdir(target_basename):
         os.mkdir(target_basename)
-    has_cooja_output = os.path.isfile(cooja_output)
-    if has_cooja_output:
-        os.rename(cooja_output, target_output)
+    
+    has_cooja_output = True
+    # has_cooja_output = os.path.isfile(cooja_output)
+    # if has_cooja_output:
+    #     os.rename(cooja_output, target_output)
+    
     os.rename(cooja_log, target_log_output)
 
-    if return_code != 0 or not has_cooja_output:
+    if return_code != 0 or not os.path.exists(target_event_output):
         print(f"Failed, ret code={return_code}, output:", file=sys.stderr)
         print("-----", file=sys.stderr)
         print(output, file=sys.stderr, end='')
         print("-----", file=sys.stderr)
         if not has_cooja_output:
             print("No Cooja simulation script output!", file=sys.stderr)
-        os.rename(target_basename, target_basename_fail)
+        # os.rename(target_basename, target_basename_fail)
+        shutil.rmtree(target_basename)
         return False
 
-    print("  Checking for output...")
+    # print("  Checking for output...")
 
-    is_done = False
-    with open(target_output, "r") as f:
-        for line in f.readlines():
-            line = line.strip()
-            if line == "TEST OK":
-                is_done = True
-                continue
+    # is_done = False
+    # with open(target_output, "r") as f:
+    #     for line in f.readlines():
+    #         line = line.strip()
+    #         if line == "TEST OK":
+    #             is_done = True
+    #             continue
 
-    if not is_done:
-        print("  test failed.")
-        os.rename(target_basename, target_basename_fail)
-        return False
+    # if not is_done:
+    #     print("  test failed.")
+    #     os.rename(target_basename, target_basename_fail)
+    #     return False
 
     print(f"  test done in {round((end_time - start_time) / 1000000)} milliseconds.")
     return True
@@ -127,14 +145,17 @@ def main(parser=None):
     if conopts.output_path and not os.path.isdir(conopts.output_path):
         os.mkdir(conopts.output_path)
 
+    os.environ['JAVA_HOME'] = "/usr/lib/jvm/java-11-openjdk-i386"
+
     for simulation_file in conopts.input:
         if not os.access(simulation_file, os.R_OK):
             print(f'Can not read simulation script "{simulation_file}"', file=sys.stderr)
             sys.exit(1)
 
         print(f'Running simulation "{simulation_file}"')
-        if not run_simulation(simulation_file, conopts.output_path):
-            sys.exit(f'Failed to run simulation "{simulation_file}"')
+        while not run_simulation(simulation_file, conopts.output_path):
+            pass
+            # sys.exit(f'Failed to run simulation "{simulation_file}"')
 
     print('Done. No more simulation files specified.')
 
