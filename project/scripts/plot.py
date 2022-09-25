@@ -80,8 +80,6 @@ def read_a_data(data_dir, file_name):
 def saveFig(saveDir, title, dpi='figure', tight_layout=True):
     LOG_LEVEL.print_if_verbose(f"saveFig {title}")
     format = ".png"
-    
-    plt.legend(loc="upper right")
 
     if tight_layout:
         plt.tight_layout()
@@ -109,32 +107,43 @@ matplotlib.rcParams.update({'font.size': 5})
 # for n_motes in range(10, 11):
 #     for n_iter in range(0, 1):
 #         plot_rank_stage_per_mote(n_motes, n_iter)
-FEATURES = ["Rank", "Seq", "DIS-R", "DIS-S", "DIO-R", "DIO-S", "DAO-R", "RPL-total-sent"]
-
+# FEATURES = ["Rank", "Seq", "DIS-R", "DIS-S", "DIO-R", "DIO-S", "DAO-R", "RPL-total-sent"]
+FEATURES = ["DIS-R", "DIS-S", "DIO-R", "DIO-S", "DAO-R", "RPL-total-sent"]
+cmap = matplotlib.cm.get_cmap('jet')
+attacker_idx = 7 - 7 - 1
+ylims = [[0, 10], [0, 4], [0, 100], [0, 100], [0, 200], [0, 150]]
 def plot(csv_file_path, scenario):
     df = pd.read_csv(csv_file_path, sep=";")
     
     grouped_df = df.groupby("Mote")
-    for key, item in sorted(grouped_df):
+    # grouped_df = sorted(grouped_df)
+    
+    keys = [4, 5, 6, 7, 8, 9, 10, 11, 2, 3]
+    lines = {}
+    for key in keys:
         stage_df = grouped_df.get_group(key)
         x = stage_df["Time"]
         for j, feature in enumerate(FEATURES):
             ax = plt.subplot(len(FEATURES), 1, j + 1)
             y = stage_df[feature]
-            plt.plot(x, y, label=f"Mote {int(key)}")
-            plt.ylabel(feature)
+            lines[key] = ax.plot(x, y, label=f"M {key}")[0]
+            ax.set_ylabel(feature)
+            ax.yaxis.label.set_fontsize(7)
+            ax.set_ylim(ylims[j])
             
             if j == 0:
-                plt.title(scenario)
+                ax.set_title(scenario)
+                ax.title.set_size(10)
 
             if j == len(FEATURES) -1:
-                plt.xlabel("Time")
+                ax.set_xlabel("Time(ms)")
                 
     
-    title = "rpl-statistics-plot"
-    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    title = scenario
+    plt.legend(handles=[lines[k] for k in sorted(keys)],
+               loc="lower right", bbox_to_anchor=(1.1, 0))
     # plt.suptitle(title)
-    saveFig(csv_file_path[:csv_file_path.rfind("\\")], title, dpi=300, tight_layout=False)
+    saveFig(csv_file_path[:csv_file_path.rfind("\\")] + "/..", title+"_ymatch", dpi=500, tight_layout=False)
     
 if __name__ == "__main__":
     import argparse
