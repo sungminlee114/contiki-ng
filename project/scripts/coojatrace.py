@@ -77,6 +77,17 @@ class RadioTransmission:
         self.interferedNoneDestinations = data[6]
         self.data = data[7]
 
+class Script:
+    time = None
+    description = None
+
+    def __init__(self, line):
+        data = line.split('\t', 1)
+        if len(data) < 2:
+            raise coojautils.ParseException("Failed to parse event data")
+        self.time = int(data[0])
+        self.description = data[1]
+
 
 class CoojaTrace:
     motes = None
@@ -90,6 +101,7 @@ class CoojaTrace:
         self.mote_output = []
         self.events = []
         self.transmissions = []
+        self.script = []
 
         if not os.path.isdir(trace_name):
             m = re.match(r'(.+-dt-\d+)(-.+[.].+)?$', trace_name)
@@ -101,6 +113,7 @@ class CoojaTrace:
             coojautils.read_log(self.data_trace_name + '-event-output.log', self._process_events, max_errors=1)
             coojautils.read_log(self.data_trace_name + '-mote-output.log', self._process_mote_output, max_errors=1)
             coojautils.read_log(self.data_trace_name + '-radio-medium.log', self._process_radio_medium, max_errors=1)
+            coojautils.read_log(self.data_trace_name + '-script.log', self._process_script, max_errors=1)
         else:
             self.data_trace_name = trace_name
             coojautils.read_log(os.path.join(self.data_trace_name, 'events.log'), self._process_events,
@@ -108,6 +121,8 @@ class CoojaTrace:
             coojautils.read_log(os.path.join(self.data_trace_name, 'mote-output.log'), self._process_mote_output,
                                 max_errors=1)
             coojautils.read_log(os.path.join(self.data_trace_name, 'radio-medium.log'), self._process_radio_medium,
+                                max_errors=1)
+            coojautils.read_log(os.path.join(self.data_trace_name, 'script.log'), self._process_script,
                                 max_errors=1)
 
         # Get address from 'Tentative link-local IPv6 address: fe80::222:22:22:22'
@@ -120,6 +135,9 @@ class CoojaTrace:
 
     def _process_events(self, line):
         self.events.append(Event(line))
+
+    def _process_script(self, line):
+        self.script.append(Script(line))
 
     def _process_mote_output(self, line):
         output = MoteOutput(line)
@@ -158,6 +176,16 @@ class CoojaTrace:
             output = [e for e in output if e.description == description]
         return output
 
+    def get_script(self, description=None, start_time=None, end_time=None):
+        output = list(self.script)
+        if start_time is not None:
+            output = [v for v in output if v.time >= start_time]
+        if end_time is not None:
+            output = [v for v in output if v.time <= end_time]
+        if description:
+            output = [e for e in output if description in e.description]
+        return output
+        
     def get_mote_output(self, regex=None, start_time=None, end_time=None):
         output = list(self.mote_output)
         if start_time is not None:

@@ -48,8 +48,12 @@ def main():
 
         network_events = trace.get_events(event_type='network', description='steady-state')
         network_stable_time = network_events[0].time if network_events else 0
+
+        network_script = trace.get_script(description='attack')
+        network_attck_time = network_script[0].time if network_script else 0
+
         # network_stable_time = 0 # From the start
-        
+        trace.get_events()
         motes = {}
         data = []
         p = re.compile(r'.*DATA: (.+)$')
@@ -59,7 +63,7 @@ def main():
         for o in trace.get_mote_output(start_time=network_stable_time):
             m = p.match(o.message)
             if m:
-                row = [o.time, o.mote_id] + [int(v) for _k, v in (g.split(':') for g in m.group(1).split(','))]
+                row = [o.time, o.mote_id] + [int(v) for _k, v in (g.split(':') for g in m.group(1).split(','))] 
                 last = motes[o.mote_id] if o.mote_id in motes else None
                 motes[o.mote_id] = row
                 # Use relative counters since last known statistics instead of aggregated
@@ -68,12 +72,18 @@ def main():
                 else:
                     pass
                     # row = row[:5] + [0] * 6
-                
-                data.append(row)
+                if o.time < network_attck_time:
+                    row = row + ['No']
+                elif o.time > network_attck_time:
+                    row = row + [network_script[0].description.split(' ', 1)[0]]
+                else:
+                    row = row + ['Start']
 
+                data.append(row)
+        
         # Print 20 first values
         column_names = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S',
-                        'DAO-R', 'RPL-total-sent']
+                        'DAO-R', 'RPL-total-sent' , 'Attack' ]
         print(format_pretty_table(data[:20], column_names))
         if len(data) > 20:
             print(f"Only showing 20 first rows - remaining {len(data) - 20} rows not shown.")
