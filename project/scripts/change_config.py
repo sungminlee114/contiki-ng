@@ -15,6 +15,7 @@ def main():
     # p.add_argument('--topology', dest='topology', default=None)
     # p.add_argument('--min-distance', dest='min_distance', type=int, default=0)
     p.add_argument('--trxr', dest='trx_ratio', type=float, default=1.0, nargs='+')
+    p.add_argument('--randseed', dest='rand_seed', type=int, default=123456, nargs='+')
     
     try:
         conopts = p.parse_args()
@@ -30,22 +31,25 @@ def main():
     for input_path in conopts.input:
         for trx_ratio in conopts.trx_ratio:
             assert(0.0 <= trx_ratio <= 1.0)
-                
-            c = Cooja(input_path)
-            output_file = os.path.join(conopts.output, os.path.split(input_path)[1])
-            
-            # -- radio
-            radio_medium = c.sim.radio_medium
-            
-            radio_medium.success_ratio_tx = trx_ratio
-            radio_medium.success_ratio_rx = trx_ratio
-            output_file = re.sub(r'-base', f'-trxr{trx_ratio}-base', output_file)
-            
-            
-            # --
-            output_file = output_file.replace("-base", "")
-            c.save(output_file)
+            for rand_seed in conopts.rand_seed:
 
+                c = Cooja(input_path)
+                output_file = os.path.join(conopts.output, os.path.split(input_path)[1])
+                
+                # -- radio
+                radio_medium = c.sim.radio_medium
+                
+                radio_medium.success_ratio_tx = trx_ratio
+                radio_medium.success_ratio_rx = trx_ratio
+                output_file = re.sub(r'-base', f'-trxr {trx_ratio}-rseed {rand_seed}-base', output_file)
+                
+                assert(100000 <= rand_seed <= 999999)
+
+                c.sim.random_seed = rand_seed
+                
+                # --
+                output_file = output_file.replace("-base", "")
+                c.save(output_file)
 
 if __name__ == "__main__":
     main()
