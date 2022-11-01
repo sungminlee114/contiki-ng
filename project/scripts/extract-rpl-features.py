@@ -92,7 +92,7 @@ def main():
         csv_name = 'rpl-statistics.csv'
         write_csv(trace, csv_name, column_names, data)
         
-        m = re.search(r'rpl-udp-.*$', simulation_logdir)
+        m = re.search(r'udp-\d+.*$', simulation_logdir)
         sim_name = m.group()
         
         plot(os.path.join(simulation_logdir, csv_name), sim_name)
