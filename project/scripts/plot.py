@@ -113,6 +113,7 @@ cmap = matplotlib.cm.get_cmap('jet')
 attacker_idx = 7 - 7 - 1
 ylims = [[0, 10], [0, 4], [0, 100], [0, 100], [0, 200], [0, 150]]
 def plot(csv_file_path, scenario):
+    print(csv_file_path ,scenario)
     df = pd.read_csv(csv_file_path, sep=";")
     
     grouped_df = df.groupby("Mote")

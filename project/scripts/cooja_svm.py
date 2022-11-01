@@ -32,6 +32,7 @@ feature_cols = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO
 meta_cols = ['Attack', 'Trxr']
 
 
+# Feature engineering and data chunking
 processed_df = pd.DataFrame()
 for simul_dir in simul_dirs:
     df = pd.read_csv(f'{simul_dir}/rpl-statistics.csv',sep=';')
@@ -41,24 +42,36 @@ for simul_dir in simul_dirs:
     cfg_trxr = m.group().split("_")[1][:-1]
     
     df_split = [None] * len(df.index)
-    datas = []
+    datas,metadatas = [], []
     for row_idx in range(0, len(df.index)-window_size, detect_period):
         df_perrow = []
+        time_base = 0
         for d in range(window_size):
             i = row_idx + d
             if df_split[i] is None:
                 df_split[i] = df.iloc[i:i+1, :]
             
             df_el = df_split[i][feature_cols]
+            
             df_el.columns = [idx+str(d) for idx in df_el.columns]
             df_el = df_el.reset_index(drop=True)
             df_perrow.append(df_el)
+            
+            if d == 0:
+                time_base = df_el['Time0'].iloc[0]
+            df_el['Time'+str(d)] -= time_base
+            
         
         df_metadata = pd.DataFrame([[df_split[row_idx + attack_standard_idx]['Attack'].item(), cfg_trxr]], columns=meta_cols)
-        df_perrow = pd.concat(df_perrow + [df_metadata], axis=1)
+        df_perrow = pd.concat(df_perrow, axis=1)
         datas.append(df_perrow)
+        metadatas.append(df_metadata)
     
-    df = pd.concat(datas)
+    df_data = pd.concat(datas)
+    df_metadata = pd.concat(metadatas)
+    print(df_data, df_metadata)
+    
+    
 
 
 df_total = None
