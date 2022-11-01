@@ -54,7 +54,7 @@ def main():
             radio_medium.success_ratio_rx = trx_ratio
             
             # -- random seed
-            assert(0 <= conopts.rand_seed < len(RSs))
+            assert(0 <= conopts.rand_seed <= len(RSs))
             for rs in range(conopts.rand_seed):
                 c.sim.random_seed.set_seed(RSs[rs])
                 
