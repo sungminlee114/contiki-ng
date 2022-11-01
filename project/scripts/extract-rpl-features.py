@@ -72,7 +72,7 @@ def main():
                 else:
                     pass
                     # row = row[:5] + [0] * 6
-                if o.time < network_attck_time:
+                if (o.time < network_attck_time)|(network_attck_time == 0):
                     row = row + ['No']
                 elif o.time > network_attck_time:
                     row = row + [network_script[0].description.split(' ', 1)[0]]
@@ -92,7 +92,7 @@ def main():
         csv_name = 'rpl-statistics.csv'
         write_csv(trace, csv_name, column_names, data)
         
-        m = re.search(r'rpl-udp-.*$', simulation_logdir)
+        m = re.search(r'udp-\d+.*$', simulation_logdir)
         sim_name = m.group()
         
         plot(os.path.join(simulation_logdir, csv_name), sim_name)
