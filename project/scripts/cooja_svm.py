@@ -1,3 +1,7 @@
+import argparse
+import glob
+import os
+import re
 import pandas as pd
 from sklearn import model_selection
 from sklearn import svm
@@ -5,55 +9,59 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as pl
 from itertools import cycle
 import numpy as np
-# rpl-udp-10-attack-flooding-dis-repeat-trxr1.0-dt-1663182106848 
-# rpl-udp-10-attack-flooding-dio-drop-trxr1.0-dt-1663181965745
-# rpl-udp-10-attack-flooding-dio-drop-trxr0.7-dt-1663188414214
-# rpl-udp-10-attack-flooding-dis-repeat-trxr0.7-dt-1663182008894
-simul_dir = "rpl-udp-10-attack-flooding-dis-repeat-trxr0.7-dt-1663182008894"
-df = pd.read_csv(f'~/Documents/git/itea-2022/contiki-ng/project/rpl-udp-ids-flooding/saved_data/{simul_dir}/rpl-statistics.csv',
-                sep=';')
 
-# df['g'] = df.index // 3
+parser = argparse.ArgumentParser()
+parser.add_argument('input', type=str)
+
+conopts = parser.parse_args()
+import sys
+if sys.platform.startswith("win") and "*" in conopts.input:
+    conopts.input = glob.glob(conopts.input)
+
+if not isinstance(conopts.input, list):
+    conopts.input = [conopts.input]
+conopts.input = [i for i in conopts.input if os.path.isdir(i)]
+simul_dirs = conopts.input
+
+print(simul_dirs)
+window_size = 3 # feature input chunk size
+detect_period = 1 # period to run detection
+attack_standard_idx = 2 # attack이라고 판단할 frame 번호. 숫자 클수록 빠르게 반응
+
+feature_cols = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
+meta_cols = ['Attack', 'Trxr']
+
+
+processed_df = pd.DataFrame()
+for simul_dir in simul_dirs:
+    df = pd.read_csv(f'{simul_dir}/rpl-statistics.csv',sep=';')
     
-# df_g= df.groupby('g').reset_index()
+    # Get configs from simul name
+    m = re.search(r'trxr.*?(-|$)', simul_dir)
+    cfg_trxr = m.group().split("_")[1][:-1]
+    
+    df_split = [None] * len(df.index)
+    datas = []
+    for row_idx in range(0, len(df.index)-window_size, detect_period):
+        df_perrow = []
+        for d in range(window_size):
+            i = row_idx + d
+            if df_split[i] is None:
+                df_split[i] = df.iloc[i:i+1, :]
+            
+            df_el = df_split[i][feature_cols]
+            df_el.columns = [idx+str(d) for idx in df_el.columns]
+            df_el = df_el.reset_index(drop=True)
+            df_perrow.append(df_el)
+        
+        df_metadata = pd.DataFrame([[df_split[row_idx + attack_standard_idx]['Attack'].item(), cfg_trxr]], columns=meta_cols)
+        df_perrow = pd.concat(df_perrow + [df_metadata], axis=1)
+        datas.append(df_perrow)
+    
+    df = pd.concat(datas)
 
-chunk_cnt = 7
 
-cnt = df.index.stop // chunk_cnt
-print(cnt)
-column_names = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S',
-                        'DAO-R', 'RPL-total-sent' , 'Attack' ]
-column_names_t = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S',
-                        'DAO-R', 'RPL-total-sent' ]
-df_mod0 = pd.DataFrame(columns=column_names)
-df_mod1 = pd.DataFrame(columns=column_names_t)
-df_mod2 = pd.DataFrame(columns=column_names_t)
-
-df_mod3 = pd.DataFrame(columns=column_names_t)
-df_mod4 = pd.DataFrame(columns=column_names_t)
-
-df_mod5 = pd.DataFrame(columns=column_names_t)
-df_mod6 = pd.DataFrame(columns=column_names_t)
-
-# df_mod7 = pd.DataFrame(columns=column_names_t)
-# df_mod8 = pd.DataFrame(columns=column_names_t)
-# df_mod9 = pd.DataFrame(columns=column_names_t)
-
-for N in range(cnt):
-        df_mod0.loc[N] = df.iloc[N*chunk_cnt + 0,:]
-        df_mod1.loc[N] = df.iloc[N*chunk_cnt + 1,:]
-        df_mod2.loc[N] = df.iloc[N*chunk_cnt + 2,:]
-        df_mod3.loc[N] = df.iloc[N*chunk_cnt + 3,:]
-        df_mod4.loc[N] = df.iloc[N*chunk_cnt + 4,:]
-        df_mod5.loc[N] = df.iloc[N*chunk_cnt + 5,:]
-        df_mod6.loc[N] = df.iloc[N*chunk_cnt + 6,:]
-
-        # df_mod7.loc[N] = df.iloc[N*chunk_cnt + 4,:]
-        # df_mod8.loc[N] = df.iloc[N*chunk_cnt + 5,:]
-        # df_mod9.loc[N] = df.iloc[N*chunk_cnt + 6,:]
-
-df_total = pd.concat([df_mod0,df_mod1,df_mod2,df_mod3,df_mod4,df_mod5,df_mod6], axis = 1)
-
+df_total = None
 print(df_total)
 
 cooja_feature = ['DIS-R','DIS-S','DIO-R','DIO-S','DAO-R','RPL-total-sent']
@@ -88,9 +96,8 @@ X_pca = pca.transform(X)
 print('explained variance ratio:',pca.explained_variance_ratio_)
 print('Preserved Variance:',sum(pca.explained_variance_ratio_))
 
-principalDf = pd.DataFrame(data = X_pca
-             , columns = ['principal component 1', 'principal component 2'])
-             
+principalDf = pd.DataFrame(data = X_pca, columns = ['principal component 1', 'principal component 2'])
+
 colors = cycle('rgb')
 target_names = ['No', 'dis-repeat', 'dio-drop']
 
