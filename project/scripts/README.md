@@ -55,3 +55,9 @@ the data trace folder.
 ```
 ./extract-rpl-features.py generated/test-00001-dt-*
 ```
+
+
+### Change simulation configs
+
+./change_config.py ..\rpl-udp-ids-flooding\*.csc ..\rpl-udp-ids-flooding\generated\ 
+--trxr 0.7 0.8 0.9 1.0 --rnds 3
