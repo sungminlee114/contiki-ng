@@ -58,6 +58,8 @@ udp_rx_callback(struct simple_udp_connection *c,
          uint16_t datalen)
 {
   app_message_t *msg = (app_message_t *)data;
+  int8_t rssi = (int8_t)uipbuf_get_attr(UIPBUF_ATTR_RSSI);
+
   LOG_INFO("Received ");
   if(datalen != sizeof(app_message_t)) {
     LOG_INFO_("unknown data of size %u from ", datalen);
@@ -67,6 +69,9 @@ udp_rx_callback(struct simple_udp_connection *c,
               app_read_uint16(msg->rpl_rank));
   }
   LOG_INFO_6ADDR(sender_addr);
+  
+  LOG_INFO_(", RSSI: (%d dBm)", rssi);
+
   LOG_INFO_("\n");
 #if WITH_SERVER_REPLY
   /* send back the same string to the client as an echo reply */

@@ -46,6 +46,8 @@ udp_rx_callback(struct simple_udp_connection *c,
          uint16_t datalen)
 {
   app_message_t *msg = (app_message_t *)data;
+  int8_t rssi = (int8_t)uipbuf_get_attr(UIPBUF_ATTR_RSSI);
+  
   LOG_INFO("Received ");
   if(datalen != sizeof(app_message_t)) {
     LOG_INFO_("unknown data of size %u from ", datalen);
@@ -53,6 +55,8 @@ udp_rx_callback(struct simple_udp_connection *c,
     LOG_INFO_("response %"PRIu32" from ", app_read_uint32(msg->seqno));
   }
   LOG_INFO_6ADDR(sender_addr);
+  
+  LOG_INFO_(", RSSI: (%d dBm)", rssi);
 #if LLSEC802154_CONF_ENABLED
   LOG_INFO_(" LLSEC LV:%d", uipbuf_get_attr(UIPBUF_ATTR_LLSEC_LEVEL));
 #endif
