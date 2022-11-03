@@ -47,7 +47,7 @@ else:
     all_data, all_metadata = [], []
     for si, simul_dir in enumerate(simul_dirs):
         print(si+1, len(simul_dirs))
-        df = pd.read_csv(f'{simul_dir}/rpl-statistics.csv',sep=';')
+        df = pd.read_csv(f'{simul_dir}/rpl-statistics.csv')
         
         # Get configs from simul name
         m = re.search(r'trxr.*?(-|$)', simul_dir)

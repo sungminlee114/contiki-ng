@@ -14,7 +14,7 @@ def write_csv(trace, csv_file, columns, data):
         print(f'Warning: the CSV file "{csv_file}" already exists!', file=sys.stderr)
     
     with trace.get_log_writer(csv_file, overwrite=True) as f:
-        w = csv.writer(f, delimiter=';', quotechar='"')
+        w = csv.writer(f, delimiter=',', quotechar='"')
         w.writerow(columns)
         for d in data:
             w.writerow(d)
