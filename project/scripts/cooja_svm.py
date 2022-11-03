@@ -55,13 +55,15 @@ else:
         
         # Permote processing
         if conopts.permote:
-            permote_col = ['DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
+            permote_col = ['Time', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
             for moteIdx in np.unique(df['Mote']):
-                df_mote = df[df['Mote'] == moteIdx]
+                _df_mote = df[df['Mote'] == moteIdx]
+                df_mote = _df_mote.copy()
                 for rowIdx in range(len(df_mote.index)):
                     if rowIdx != 0:
                         for col in permote_col:
-                            df_mote[col].iloc[rowIdx] -= df_mote[col].iloc[rowIdx -1]
+                            df_mote[col].iloc[rowIdx] = _df_mote[col].iloc[rowIdx] - _df_mote[col].iloc[rowIdx -1]
+                
                 df[df['Mote'] == moteIdx] = df_mote
             
         df_split = [None] * len(df.index)
@@ -80,9 +82,9 @@ else:
                 df_el = df_el.reset_index(drop=True)
                 df_perrow.append(df_el)
                 
-                if d == 0:
-                    time_base = df_el['Time0'].iloc[0]
-                df_el['Time'+str(d)] -= time_base
+                # if d == 0:
+                #     time_base = df_el['Time0'].iloc[0]
+                # df_el['Time'+str(d)] -= time_base
                 
             
             df_metadata = pd.DataFrame([[df_split[row_idx + attack_standard_idx]['Attack'].item(), cfg_trxr]], columns=meta_cols)
