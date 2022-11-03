@@ -142,14 +142,20 @@ PROCESS_THREAD(udp_client_process, ev, data)
     dag_version = default_instance ? default_instance->dag.version : 0;
     LOG_INFO("DATA: sq:%"PRIu32",rank:%3u,ver:%u",
               count, rank, dag_version);
-    LOG_INFO_(",disr:%"PRIu32",diss:%"PRIu32,
-              icmp6_stats.dis_uc_recv + icmp6_stats.dis_mc_recv,
-              icmp6_stats.dis_uc_sent + icmp6_stats.dis_mc_sent);
-    LOG_INFO_(",dior:%"PRIu32",dios:%"PRIu32,
-              icmp6_stats.dio_uc_recv + icmp6_stats.dio_mc_recv,
-              icmp6_stats.dio_uc_sent + icmp6_stats.dio_mc_sent);
-    LOG_INFO_(",diar:%"PRIu32",tots:%"PRIu32"\n",
-              icmp6_stats.dao_recv, icmp6_stats.rpl_total_sent);
+    LOG_INFO_(",dis-ur:%"PRIu32",dis-mr:%"PRIu32,
+              icmp6_stats.dis_uc_recv, icmp6_stats.dis_mc_recv);
+    LOG_INFO_(",dis-us:%"PRIu32",dis-ms:%"PRIu32,
+              icmp6_stats.dis_uc_sent, icmp6_stats.dis_mc_sent);
+    LOG_INFO_(",dio-ur:%"PRIu32",dio-mr:%"PRIu32,
+              icmp6_stats.dio_uc_recv, icmp6_stats.dio_mc_recv);
+    LOG_INFO_(",dio-us:%"PRIu32",dio-ms:%"PRIu32,
+              icmp6_stats.dio_uc_sent, icmp6_stats.dio_mc_sent);
+    LOG_INFO_(",dia-r:%"PRIu32",dia-s:%"PRIu32"\n",
+              icmp6_stats.dao_recv, icmp6_stats.dao_sent);
+    LOG_INFO_(",diaa-r:%"PRIu32",diaa-s:%"PRIu32"\n",
+              icmp6_stats.dao_ack_recv, icmp6_stats.dao_ack_sent);
+    // LOG_INFO_(",dia-r:%"PRIu32",tots:%"PRIu32"\n",
+    //         icmp6_stats.dao_recv, icmp6_stats.rpl_total_sent);
     // LOG_INFO_(",rssi:%"PRIu32,
     //           cc2420_last_rssi);
 

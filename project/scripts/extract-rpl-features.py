@@ -82,8 +82,12 @@ def main():
                 data.append(row)
         
         # Print 20 first values
-        column_names = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S',
-                        'DAO-R', 'RPL-total-sent' , 'Attack' ]
+        column_names = ['Time', 'Mote', 
+                        'Seq', 'Rank', 'Version', 
+                        'DIS-UR', 'DIS-MR', 'DIS-US', 'DIS-MS', 
+                        'DIO-UR', 'DIO-MR', 'DIO-US', 'DIO-MS', 
+                        'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 
+                        'Attack']
         print(format_pretty_table(data[:20], column_names))
         if len(data) > 20:
             print(f"Only showing 20 first rows - remaining {len(data) - 20} rows not shown.")

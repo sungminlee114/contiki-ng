@@ -44,6 +44,8 @@ struct icmp6_stats {
   uint32_t dio_mc_sent;
   uint32_t dao_recv;
   uint32_t dao_sent;
+  uint32_t dao_ack_recv;
+  uint32_t dao_ack_sent;
   uint32_t rpl_total_sent;
   uint32_t rpl_total_recv;
   uint32_t total_sent;

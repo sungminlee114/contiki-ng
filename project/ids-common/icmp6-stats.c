@@ -180,6 +180,7 @@ static enum netstack_ip_action
 process_dao_ack_input(struct uip_icmp_hdr *hdr)
 {
   /* Count DAO ack? */
+  icmp6_stats.dao_ack_recv++;
   return NETSTACK_IP_PROCESS;
 }
 /*---------------------------------------------------------------------------*/
@@ -195,7 +196,6 @@ ip_input(void)
   // This can be either UDP(Maybe datapacket) or ICMP6(Maybe RPL control message)
   LOG_INFO("Incoming %s packet from ", get_proto_as_string(proto));
   LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-  LOG_INFO_("\n");
   if(proto == UIP_PROTO_ICMP6 && header != NULL) {
     icmp_hdr = (struct uip_icmp_hdr *)header;
     icmp6_stats.total_recv++;
@@ -206,19 +206,24 @@ ip_input(void)
       switch(icmp_hdr->icode) {
       case RPL_CODE_DIS:
         action = process_dis_input(icmp_hdr);
+        LOG_INFO_("(DIS)");
         break;
       case RPL_CODE_DIO:
         action = process_dio_input(icmp_hdr);
+        LOG_INFO_("(DIO)");
         break;
       case RPL_CODE_DAO:
         action = process_dao_input(icmp_hdr);
+        LOG_INFO_("(DAO)");
         break;
       case RPL_CODE_DAO_ACK:
         action = process_dao_ack_input(icmp_hdr);
+        LOG_INFO_("(DAO_ACK)");
         break;
       }
     }
   }
+  LOG_INFO_("\n");
   return action;
 }
 /*---------------------------------------------------------------------------*/
@@ -274,6 +279,7 @@ process_dao_output(struct uip_icmp_hdr *hdr)
 static void
 process_dao_ack_output(struct uip_icmp_hdr *hdr)
 {
+  icmp6_stats.dao_ack_sent++;
 }
 /*---------------------------------------------------------------------------*/
 static enum netstack_ip_action
@@ -293,7 +299,6 @@ ip_output(const linkaddr_t *localdest)
     LOG_INFO_(" from ");
     LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
   }
-  LOG_INFO_("\n");
   if(is_from_me && proto == UIP_PROTO_ICMP6 && header != NULL) {
     icmp_hdr = (struct uip_icmp_hdr *)header;
     icmp6_stats.total_sent++;
@@ -302,19 +307,24 @@ ip_output(const linkaddr_t *localdest)
       switch(icmp_hdr->icode) {
       case RPL_CODE_DIS:
         process_dis_output(icmp_hdr);
+        LOG_INFO_("(DIS)");
         break;
       case RPL_CODE_DIO:
         process_dio_output(icmp_hdr);
+        LOG_INFO_("(DIO)");
         break;
       case RPL_CODE_DAO:
         process_dao_output(icmp_hdr);
+        LOG_INFO_("(DAO)");
         break;
       case RPL_CODE_DAO_ACK:
         process_dao_ack_output(icmp_hdr);
+        LOG_INFO_("(DAO_ACK)");
         break;
       }
     }
   }
+  LOG_INFO_("\n");
 
   // if(!is_from_me && icmp6_stats_drop_fwd_udp && proto == UIP_PROTO_UDP) {
   //   LOG_INFO("Dropping UDP forwarded from ");

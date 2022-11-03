@@ -108,10 +108,13 @@ matplotlib.rcParams.update({'font.size': 5})
 #     for n_iter in range(0, 1):
 #         plot_rank_stage_per_mote(n_motes, n_iter)
 # FEATURES = ["Rank", "Seq", "DIS-R", "DIS-S", "DIO-R", "DIO-S", "DAO-R", "RPL-total-sent"]
-FEATURES = ["DIS-R", "DIS-S", "DIO-R", "DIO-S", "DAO-R", "RPL-total-sent"]
+FEATURES = ['DIS-UR', 'DIS-MR', 'DIS-US', 'DIS-MS', 
+            'DIO-UR', 'DIO-MR', 'DIO-US', 'DIO-MS', 
+            'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 
+            'Attack']
 cmap = matplotlib.cm.get_cmap('jet')
 attacker_idx = 7 - 7 - 1
-ylims = [[0, 10], [0, 4], [0, 100], [0, 100], [0, 200], [0, 150]]
+# ylims = [[0, 10], [0, 4], [0, 100], [0, 100], [0, 200], [0, 150]]
 def plot(csv_file_path, scenario):
     print(csv_file_path ,scenario)
     df = pd.read_csv(csv_file_path)
@@ -130,7 +133,7 @@ def plot(csv_file_path, scenario):
             lines[key] = ax.plot(x, y, label=f"M {key}")[0]
             ax.set_ylabel(feature)
             ax.yaxis.label.set_fontsize(7)
-            ax.set_ylim(ylims[j])
+            # ax.set_ylim(ylims[j])
             
             if j == 0:
                 ax.set_title(scenario)
