@@ -11,18 +11,21 @@ from itertools import cycle
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
+pd.set_option('mode.chained_assignment',  None) # 경고 off
+
 parser = argparse.ArgumentParser()
 parser.add_argument('input', type=str, nargs="+")
+parser.add_argument('--permote', action="store_true")
 
 conopts = parser.parse_args()
 import sys
+if len(conopts.input) == 1 and isinstance(conopts.input, list):
+    conopts.input = conopts.input[0]
 if sys.platform.startswith("win") and "*" in conopts.input:
     conopts.input = glob.glob(conopts.input)
 
 # Read data
-
-if len(conopts.input) == 1 and conopts.input[0].endswith(".csv"):
-    conopts.input = conopts.input[0]
+if not isinstance(conopts.input, list) and conopts.input.endswith(".csv"):
     assert (os.path.exists(conopts.input))
     df_data = pd.read_csv(conopts.input)
     print("Read preprocessed data fin")
@@ -32,8 +35,8 @@ else:
     conopts.input = [i for i in conopts.input if os.path.isdir(i)]
     simul_dirs = conopts.input
 
-    window_size = 3 # feature input chunk size
-    detect_period = 1 # period to run detection
+    window_size = 10 # feature input chunk size
+    detect_period = 5 # period to run detection
     attack_standard_idx = 2 # attack이라고 판단할 frame 번호. 숫자 클수록 빠르게 반응
 
     feature_cols = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
@@ -44,12 +47,25 @@ else:
     all_data, all_metadata = [], []
     for si, simul_dir in enumerate(simul_dirs):
         print(si+1, len(simul_dirs))
-        df = pd.read_csv(f'{simul_dir}/rpl-statistics.csv',sep=';')
+        df = pd.read_csv(f'{simul_dir}/rpl-statistics.csv')
         
         # Get configs from simul name
         m = re.search(r'trxr.*?(-|$)', simul_dir)
         cfg_trxr = m.group().split("_")[1][:-1]
         
+        # Permote processing
+        if conopts.permote:
+            permote_col = ['Time', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
+            for moteIdx in np.unique(df['Mote']):
+                _df_mote = df[df['Mote'] == moteIdx]
+                df_mote = _df_mote.copy()
+                for rowIdx in range(len(df_mote.index)):
+                    if rowIdx != 0:
+                        for col in permote_col:
+                            df_mote[col].iloc[rowIdx] = _df_mote[col].iloc[rowIdx] - _df_mote[col].iloc[rowIdx -1]
+                
+                df[df['Mote'] == moteIdx] = df_mote
+            
         df_split = [None] * len(df.index)
         datas = []
         for row_idx in range(0, len(df.index)-window_size, detect_period):
@@ -66,9 +82,9 @@ else:
                 df_el = df_el.reset_index(drop=True)
                 df_perrow.append(df_el)
                 
-                if d == 0:
-                    time_base = df_el['Time0'].iloc[0]
-                df_el['Time'+str(d)] -= time_base
+                # if d == 0:
+                #     time_base = df_el['Time0'].iloc[0]
+                # df_el['Time'+str(d)] -= time_base
                 
             
             df_metadata = pd.DataFrame([[df_split[row_idx + attack_standard_idx]['Attack'].item(), cfg_trxr]], columns=meta_cols)
@@ -78,14 +94,14 @@ else:
         all_data.append(pd.concat(datas))
 
     df_data = pd.concat(all_data)
-    csv_path = f"{simul_dir}/../data-ws{window_size}-dp{detect_period}-asi{attack_standard_idx}.csv"
+    csv_path = f"{simul_dir}/../data-ws{window_size}-dp{detect_period}-asi{attack_standard_idx}{'-pm' if conopts.permote else ''}.csv"
     df_data.to_csv(csv_path)
-
     print("Data process fin")
+    df_data = pd.read_csv(csv_path)
 
     conopts.input = csv_path
 
-
+# print(df_data)
 # -- filter cols
 feature_cols = [
     # 'Time', 
@@ -101,15 +117,13 @@ for c in df_data.columns:
             cols.append(c)
 
 # -- filter rows
-trxrs = [.7, 0.8, 0.9, 1.0]
+trxrs = [0.7, 0.8, 0.9, 1.0]
 df_data = df_data[np.isin(df_data['Trxr'], trxrs)]
 # df_data = df_data[np.isin(df_data['Attack'], ['No', "dio-drop"])]
 
-# -- get dasta
-
+# -- get data
 X = df_data[cols]
 Y = df_data['Attack']
-print(cols, X)
 # -- PCA
 pca_n_comp =   2 # pca dimension (2 or 3)
 pca = PCA(n_components=pca_n_comp, whiten=True).fit(X)
@@ -157,6 +171,7 @@ else:
         ax.set_zlabel('pca 3')
 
 # pl.show()
+pl.suptitle(conopts.input.replace(".csv", ""))
 pl.tight_layout()
 pl.savefig(conopts.input.replace(".csv", ".png"))
 # -- run model

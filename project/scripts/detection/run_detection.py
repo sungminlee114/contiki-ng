@@ -24,6 +24,6 @@ for input_path in input_paths:
     else:
         csv_file_path = input_path
     
-    df = pd.read_csv(csv_file_path, sep=";")
+    df = pd.read_csv(csv_file_path)
     
     print(df)

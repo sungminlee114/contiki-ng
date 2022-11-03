@@ -61,7 +61,7 @@ def read_a_data(data_dir, file_name):
     n_motes, n_exp_iter = int(n_motes), int(n_exp_iter)
 
     data_path = os.path.join(data_dir, file_name)
-    df = pd.read_csv(data_path, sep=";")
+    df = pd.read_csv(data_path)
 
     # 시뮬레이션이니까 각 stage 마다 모든 mote가 돌거고
     # 때문에 각 stage마다 끊어서 print
@@ -114,7 +114,7 @@ attacker_idx = 7 - 7 - 1
 ylims = [[0, 10], [0, 4], [0, 100], [0, 100], [0, 200], [0, 150]]
 def plot(csv_file_path, scenario):
     print(csv_file_path ,scenario)
-    df = pd.read_csv(csv_file_path, sep=";")
+    df = pd.read_csv(csv_file_path)
     
     grouped_df = df.groupby("Mote")
     # grouped_df = sorted(grouped_df)
