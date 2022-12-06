@@ -18,6 +18,8 @@
 #include <inttypes.h>
 
 #include "sys/log.h"
+
+#include "rpl.h"
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
@@ -32,6 +34,7 @@ static struct simple_udp_connection udp_conn;
 
 bool flooding_attack_send_dis = false;
 
+extern rpl_instance_t curr_instance;
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_client_process, "UDP client");
 AUTOSTART_PROCESSES(&udp_client_process);
@@ -154,10 +157,13 @@ PROCESS_THREAD(udp_client_process, ev, data)
               icmp6_stats.dio_uc_recv, icmp6_stats.dio_mc_recv);
     LOG_INFO_(",dio-us:%"PRIu32",dio-ms:%"PRIu32,
               icmp6_stats.dio_uc_sent, icmp6_stats.dio_mc_sent);
-    LOG_INFO_(",dia-r:%"PRIu32",dia-s:%"PRIu32"\n",
+    LOG_INFO_(",dao-r:%"PRIu32",dao-s:%"PRIu32,
               icmp6_stats.dao_recv, icmp6_stats.dao_sent);
-    LOG_INFO_(",diaa-r:%"PRIu32",diaa-s:%"PRIu32"\n",
+    LOG_INFO_(",daoa-r:%"PRIu32",daoa-s:%"PRIu32,
               icmp6_stats.dao_ack_recv, icmp6_stats.dao_ack_sent);
+    LOG_INFO_(",dio_intcurrent:%"PRIu32, (uint32_t)curr_instance.dag.dio_intcurrent);
+    LOG_INFO_(",dio_counter:%"PRIu32"\n", (uint32_t)curr_instance.dag.lifetime);
+
     // LOG_INFO_(",dia-r:%"PRIu32",tots:%"PRIu32"\n",
     //         icmp6_stats.dao_recv, icmp6_stats.rpl_total_sent);
     // LOG_INFO_(",rssi:%"PRIu32,

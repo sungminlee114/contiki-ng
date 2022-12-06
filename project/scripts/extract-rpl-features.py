@@ -26,13 +26,14 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', action='store_true', dest='summary', default=False)
-    parser.add_argument('input', type=str)
+    parser.add_argument('input', type=str, nargs="+")
 
+    
     try:
         conopts = parser.parse_args()
     except Exception as e:
         sys.exit(f"Illegal arguments: {str(e)}")
-    
+    print(conopts.input)
     import sys
     if sys.platform.startswith("win") and "*" in conopts.input:
         conopts.input = glob.glob(conopts.input)
@@ -86,7 +87,7 @@ def main():
                         'Seq', 'Rank', 'Version', 
                         'DIS-UR', 'DIS-MR', 'DIS-US', 'DIS-MS', 
                         'DIO-UR', 'DIO-MR', 'DIO-US', 'DIO-MS', 
-                        'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 
+                        'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 'dio_intcurrent','dio_counter', 
                         'Attack']
         print(format_pretty_table(data[:20], column_names))
         if len(data) > 20:
@@ -95,6 +96,7 @@ def main():
         # Save statistics to CSV file
         csv_name = 'rpl-statistics.csv'
         write_csv(trace, csv_name, column_names, data)
+        
         
         m = re.search(r'udp-\d+.*$', simulation_logdir)
         sim_name = m.group()

@@ -316,7 +316,7 @@
 var success = false;
 var waiting_for_stable_network = true;
 // Number of clients (the attacker excluded)
-var clients = sim.getMotesCount() - 1;
+var clients = sim.getMotesCount() - 2;
 
 var msgrecv = /.+INFO: App.+Received +message.+ from ([0-9a-f:]+).*/;
 
@@ -347,11 +347,30 @@ log.log("network steady state!\n");
 GENERATE_MSG(4000000, "continue");
 
 GENERATE_MSG(1000000, "start_attack");
+
+waiting_for_stable_network = true;
+
+while(waiting_for_stable_network) {
+    YIELD();
+    if (id == 1) {
+        match = msg.match(msgrecv)
+        if (match) {
+            senders[match[1]] = true;
+            var size = Object.keys(senders).length;
+            log.log("dis-repeat flooding attack from " + match[1] \n");
+            if (size &gt;= clients) {
+                log.log("contact with all clients!\n");
+                waiting_for_stable_network = false;
+            }
+        }
+    }
+}
+
 var attacker = sim.getMoteWithID(7);
 YIELD_THEN_WAIT_UNTIL(msg.equals("start_attack"));
 
-log.log("dio-drop flooding attack from " + attacker.getID() + "!\n");
-write(attacker, "dio-drop-attack");
+log.log("dis-repeat flooding attack from " + attacker.getID() + "!\n");
+write(attacker, "dis-repeat-attack");
 
 success = true;
 

@@ -1,4 +1,3 @@
-from msilib.schema import Feature
 import matplotlib
 import pandas as pd
 import os
@@ -124,11 +123,12 @@ def plot(csv_file_path, scenario):
     
     keys = [4, 5, 6, 7, 8, 9, 10, 11, 2, 3]
     lines = {}
+    fig, axes = plt.subplots(len(FEATURES), 1, figsize=(10, 10))
     for key in keys:
         stage_df = grouped_df.get_group(key)
         x = stage_df["Time"]
         for j, feature in enumerate(FEATURES):
-            ax = plt.subplot(len(FEATURES), 1, j + 1)
+            ax = axes[j]
             y = stage_df[feature]
             lines[key] = ax.plot(x, y, label=f"M {key}")[0]
             ax.set_ylabel(feature)
@@ -147,7 +147,10 @@ def plot(csv_file_path, scenario):
     plt.legend(handles=[lines[k] for k in sorted(keys)],
                loc="lower right", bbox_to_anchor=(1.1, 0))
     # plt.suptitle(title)
-    saveFig(csv_file_path[:csv_file_path.rfind("\\")] + "/..", title+"_ymatch", dpi=500, tight_layout=False)
+    saveFig(csv_file_path[:csv_file_path.rfind(os.sep)] + "/..", title+"_ymatch", dpi=500, tight_layout=False)
+    plt.close()
+    plt.clf()
+    plt.cla()
     
 if __name__ == "__main__":
     import argparse

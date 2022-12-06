@@ -39,7 +39,12 @@ else:
     detect_period = 5 # period to run detection
     attack_standard_idx = 2 # attack이라고 판단할 frame 번호. 숫자 클수록 빠르게 반응
 
-    feature_cols = ['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
+    feature_cols = ['Time', 'Mote', 
+                        'Seq', 'Rank', 'Version', 
+                        'DIS-UR', 'DIS-MR', 'DIS-US', 'DIS-MS', 
+                        'DIO-UR', 'DIO-MR', 'DIO-US', 'DIO-MS', 
+                        'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 'dio_intcurrent','dio_counter']
+    #['Time', 'Mote', 'Seq', 'Rank', 'Version', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
     meta_cols = ['Attack', 'Trxr']
 
 
@@ -55,7 +60,11 @@ else:
         
         # Permote processing
         if conopts.permote:
-            permote_col = ['Time', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
+            permote_col = ['Time',
+                        'DIS-UR', 'DIS-MR', 'DIS-US', 'DIS-MS', 
+                        'DIO-UR', 'DIO-MR', 'DIO-US', 'DIO-MS', 
+                        'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 'dio_intcurrent','dio_counter']
+            # ['Time', 'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R', 'RPL-total-sent']
             for moteIdx in np.unique(df['Mote']):
                 _df_mote = df[df['Mote'] == moteIdx]
                 df_mote = _df_mote.copy()
@@ -104,12 +113,21 @@ else:
 # print(df_data)
 # -- filter cols
 feature_cols = [
-    # 'Time', 
-    'Mote', 
-    # 'Seq', 'Rank',
-    'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R',
-    # 'RPL-total-sent'
-    ]
+    #'Time',
+                        'DIS-UR', 'DIS-MR', 'DIS-US', 'DIS-MS', 
+                        'DIO-UR', 'DIO-MR', 'DIO-US', 'DIO-MS', 
+                        #'DAO-R', 'DAO-S', 'DAOA-R', 'DAOA-S', 
+                        'dio_intcurrent',
+                        #'dio_counter',
+                        ]
+
+# [
+#     # 'Time', 
+#     'Mote', 
+#     # 'Seq', 'Rank',
+#     'DIS-R', 'DIS-S', 'DIO-R', 'DIO-S', 'DAO-R',
+#     # 'RPL-total-sent'
+#     ]
 cols = []
 for c in df_data.columns:
     for fc in feature_cols:

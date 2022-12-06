@@ -101,14 +101,17 @@ rpl_timers_schedule_periodic_dis(void)
 static void
 handle_dis_timer(void *ptr)
 {
+  LOG_INFO("handle_dis_timer");
   if(!rpl_dag_root_is_root() &&
      (!curr_instance.used ||
        curr_instance.dag.preferred_parent == NULL ||
        curr_instance.dag.rank == RPL_INFINITE_RANK)) {
+        LOG_INFO("SEND DIS");
     /* Send DIS and schedule next */
     rpl_icmp6_dis_output(NULL);
     rpl_timers_schedule_periodic_dis();
   }
+  LOG_INFO("\n");
 }
 /*---------------------------------------------------------------------------*/
 /*------------------------------- DIO -------------------------------------- */

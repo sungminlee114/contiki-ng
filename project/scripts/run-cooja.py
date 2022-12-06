@@ -75,7 +75,7 @@ def run_simulation(cooja_file, output_path=None):
         f"-Dargs={os.path.abspath(cooja_file)}",
         f"-Ddatatrace={target_basename}",
         "-buildfile",
-        "/home/user/contiki-ng/tools/cooja/build.xml",
+        "/home/choiyu8/Documents/git/itea-2022/new_contiki/contiki-ng/tools/cooja/build.xml",
     ])
     
     sys.stdout.write(f"  Running Cooja:\n    {command}\n")
@@ -145,7 +145,7 @@ def main(parser=None):
     if conopts.output_path and not os.path.isdir(conopts.output_path):
         os.mkdir(conopts.output_path)
 
-    os.environ['JAVA_HOME'] = "/usr/lib/jvm/java-11-openjdk-i386"
+    os.environ['JAVA_HOME'] = "/usr/lib/jvm/java-11-openjdk-amd64"
 
     for simulation_file in conopts.input:
         if not os.access(simulation_file, os.R_OK):
