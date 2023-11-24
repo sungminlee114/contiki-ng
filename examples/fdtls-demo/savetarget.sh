@@ -1,0 +1,1 @@
+make -j 44 TARGET=zoul BOARD=firefly savetarget
