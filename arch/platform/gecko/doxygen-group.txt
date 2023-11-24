@@ -1,9 +1,0 @@
-/**
- * \defgroup gecko The Gecko SoCs
- * \ingroup cpu
- */
-
-/**
- * \defgroup gecko-platforms Gecko platform
- * \ingroup platform
- */
