@@ -1,2 +1,2 @@
-cd tools/cooja
-/gradlew run
+cd tools/cooja/
+./gradlew run
