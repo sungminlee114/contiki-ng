@@ -33,6 +33,7 @@
 #include "net/ipv6/simple-udp.h"
 
 #include "net/security/tinydtls/tinydtls.h"
+#include "project-conf.h"
 
 #include "sys/log.h"
 #define LOG_MODULE "App"

@@ -120,19 +120,6 @@
     org.contikios.cooja.plugins.ScriptRunner
     <plugin_config>
       <script>
-var cli = sim.getMoteWithID(1);
-
-GENERATE_MSG(100000, "continue");
-YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
-write(cli, "ping");
-
-GENERATE_MSG(100000, "continue");
-YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
-write(cli, "init_fdtls");
-
-GENERATE_MSG(100000, "continue");
-YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
-write(cli, "ping");
 </script>
       <active>true</active>
     </plugin_config>

@@ -8,6 +8,7 @@
 
 #include "net/security/tinydtls/tinydtls.h"
 #include "shell.h"
+#include "project-conf.h"
 
 #include "sys/log.h"
 #define LOG_MODULE "App"
@@ -46,6 +47,19 @@ static int fdtls_state = FDTLS_STATE_NONE;
 #define DTLS_ECC 0
 #define DTLS_PSK 1
 
+static int
+client_recv_handler(char* recvbuf, uint16_t datalen){
+  memset(crecvbuf, 0, sizeof(crecvbuf));
+  memcpy(crecvbuf, recvbuf, datalen);
+  crecvbuf_len = datalen;
+
+  LOG_INFO("Client recv handler: %s(%d)\n", recvbuf, crecvbuf_len);
+  LOG_INFO("curr_network_process: %p\n", curr_network_process);
+  if (curr_network_process != NULL){
+    process_poll(curr_network_process);
+  }
+}
+
 static void
 udp_rx_callback(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,
@@ -60,19 +74,14 @@ udp_rx_callback(struct simple_udp_connection *c,
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
 
-  //TODO: ADD DTLS COMM LOGIC
-
-  if (datalen > 0 && crecvbuf_len == 0) {
-    memset(crecvbuf, 0, sizeof(crecvbuf));
-    memcpy(crecvbuf, data, datalen);
-    crecvbuf_len = datalen;
-    if (curr_network_process != NULL){
-      process_poll(curr_network_process);
-    } else if (fdtls_state > FDTLS_STATE_INIT) {
+  if (datalen > 0) {
+    if (fdtls_state > FDTLS_STATE_INIT) {
       dtls_handle_message(dtls_context, &dst_session, (uint8_t*) data, datalen);
-      crecvbuf_len = 0;
+      if (fdtls_state < FDTLS_STATE_HANDSHAKE) {
+        crecvbuf_len = 0;
+      }
     } else {
-      LOG_INFO("cli udp_rx_callback: fdtls_state: %d\n", fdtls_state);
+      client_recv_handler((char *) data, datalen);
     }
   } else {
     // LOG_INFO_(" (empty)\n");
@@ -167,6 +176,8 @@ static int
 read_from_peer(struct dtls_context_t *ctx, 
 	       session_t *session, uint8_t *data, size_t len) {
   
+  LOG_INFO("read_from_peer: %s(%llu)\n", (char*) data, len);
+  client_recv_handler((char *) data, len);
   return 0;
 }
 
@@ -254,7 +265,7 @@ get_psk_info(struct dtls_context_t *ctx UNUSED_PARAM,
   switch (type) {
   case DTLS_PSK_IDENTITY:
     if (result_length < psk_id_length) {
-      LOG_DBG("cannot set psk_identity -- buffer too small\n");
+      LOG_INFO("cannot set psk_identity -- buffer too small\n");
       return dtls_alert_fatal_create(DTLS_ALERT_INTERNAL_ERROR);
     }
 
@@ -262,17 +273,17 @@ get_psk_info(struct dtls_context_t *ctx UNUSED_PARAM,
     return psk_id_length;
   case DTLS_PSK_KEY:
     if (id_len != psk_id_length || memcmp(psk_id, id, id_len) != 0) {
-      LOG_DBG("PSK for unknown id requested, exiting\n");
+      LOG_INFO("PSK for unknown id requested, exiting\n");
       return dtls_alert_fatal_create(DTLS_ALERT_ILLEGAL_PARAMETER);
     } else if (result_length < psk_key_length) {
-      LOG_DBG("cannot set psk -- buffer too small\n");
+      LOG_INFO("cannot set psk -- buffer too small\n");
       return dtls_alert_fatal_create(DTLS_ALERT_INTERNAL_ERROR);
     }
 
     memcpy(result, psk_key, psk_key_length);
     return psk_key_length;
   default:
-    LOG_DBG("unsupported request type: %d\n", type);
+    LOG_INFO("unsupported request type: %d\n", type);
   }
   return dtls_alert_fatal_create(DTLS_ALERT_INTERNAL_ERROR);
 }
@@ -481,39 +492,10 @@ PROCESS_THREAD(udp_client_process, ev, data)
       if (cmd_descr != NULL && cmd_descr->func != NULL) {
         PROCESS_PT_SPAWN(&cmd_handler_pt, cmd_descr->func(&cmd_handler_pt, NULL));
 
-        // if (!strcmp(cmd_descr->name, "help")) {
-        //   SHELL_OUTPUT("Available commands:\n");
-        //   for(int i = 0; builtin_shell_commands[i].name != NULL; i++) {
-        //     SHELL_OUTPUT("  %-10s %s\n", builtin_shell_commands[i].name, builtin_shell_commands[i].help);
-        //   }
-        // } else if (!strcmp(cmd_descr->name, "reboot")) {
-        //   SHELL_OUTPUT("Rebooting...\n");
-        //   watchdog_reboot();
-        // } else if (!strcmp(cmd_descr->name, "ping")) {
-        //   static char recvbuf[PAYLOAD];
-        //   curr_network_process = PROCESS_CURRENT();
-        //   client_send("ping\0", 10);
-
-        //   PROCESS_WAIT_EVENT_UNTIL(crecvbuf_len > 0);
-
-        //   int len = client_recv(recvbuf);
-        //   if (len > 0 && !strcmp(recvbuf, "pong\0")) {
-        //     SHELL_OUTPUT("Pong\n");
-        //   } else {
-        //     SHELL_OUTPUT("No pong\n");
-        //   }
-        // } else if (!strcmp(cmd_descr->name, "prepare_data")) {
-          
-        // } else if (!strcmp(cmd_descr->name, "fdtls")) {
-        //   // cmd_fdtls();
-        // } else {
-        //   SHELL_OUTPUT("Command not found. Type 'help' for a list of commands\n");
-        // }
       } else {
         SHELL_OUTPUT("Command not found. Type 'help' for a list of commands\n");
       }
     }  else {
-      // if(1) {
       if(NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&dest_ipaddr)) {
         LOG_INFO("Root is reachable now\n");
         LOG_INFO("Address: ");
