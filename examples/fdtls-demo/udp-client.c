@@ -35,10 +35,13 @@ int crecvbuf_len = 0;
 static session_t dst_session;
 static dtls_context_t *dtls_context;
 
-#define FDTLS_STATE_INIT 0
-#define FDTLS_STATE_START 1
-#define FDTLS_STATE_HANDSHAKE 2
-static int fdtls_state = FDTLS_STATE_INIT;
+#define FDTLS_STATE_NONE 0 // Nothing ready
+#define FDTLS_STATE_UDPCONN 1 // ONLY UDP CONNECTION READY
+#define FDTLS_STATE_INIT 2 // Ready to init fdtls
+#define FDTLS_STATE_START 3 // Ready to start fdtls handshake
+#define FDTLS_STATE_HANDSHAKE 4 // Handshake done
+
+static int fdtls_state = FDTLS_STATE_NONE;
 
 #define DTLS_ECC 0
 #define DTLS_PSK 1
@@ -56,6 +59,8 @@ udp_rx_callback(struct simple_udp_connection *c,
   LOG_INFO("Received response '%.*s'(%d) from ", datalen, (char *) data, datalen);
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
+
+  //TODO: ADD DTLS COMM LOGIC
 
   if (datalen > 0 && crecvbuf_len == 0) {
     memset(crecvbuf, 0, sizeof(crecvbuf));
@@ -88,10 +93,20 @@ client_recv(char *buf)
 }
 
 static int
-client_send(const char *buf, int len)
+client_send_raw(const char *buf, int len)
 {
   simple_udp_sendto(&udp_conn, buf, len, &dest_ipaddr);
   return len;
+}
+
+static int
+client_send(const char *buf, int len)
+{
+  if (fdtls_state >= FDTLS_STATE_HANDSHAKE) {
+    return dtls_write(dtls_context, &dst_session, (uint8_t*) buf, len);
+  } else {
+    return client_send_raw(buf, len);
+  }
 }
 
 static void
@@ -151,7 +166,7 @@ PT_THREAD(cmd_reboot(struct pt *pt, char* args))
 static int
 read_from_peer(struct dtls_context_t *ctx, 
 	       session_t *session, uint8_t *data, size_t len) {
-  // LOG_INFO("read_from_peer: %s(%u)\n", data, len);
+  
   return 0;
 }
 
@@ -162,7 +177,7 @@ send_to_peer(struct dtls_context_t *ctx,
   // LOG_INFO_6ADDR(&(session->addr));
   // LOG_INFO_("): %s(%u)\n", (char*) data, len);
 
-  return client_send((char *) data, len);
+  return client_send_raw((char *) data, len);
 }
 
 // static int
@@ -197,6 +212,7 @@ dtls_complete(struct dtls_context_t *ctx, session_t *session, dtls_alert_level_t
   if(code == DTLS_EVENT_CONNECTED) {
     // handshake_complete = 1;
     fdtls_state = FDTLS_STATE_HANDSHAKE;
+    process_poll(PROCESS_CURRENT());
     //struct etimer et;
     // etimer_set(&handshake_timer,CLOCK_SECOND*5);
 
@@ -312,12 +328,70 @@ verify_ecdsa_key(struct dtls_context_t *ctx,
 static
 PT_THREAD(cmd_init_fdtls(struct pt *pt, char* args))
 {
+  static char recvbuf[PAYLOAD];
   
   PT_BEGIN(pt);
 
- 
+  if(fdtls_state >= FDTLS_STATE_HANDSHAKE){
+    LOG_INFO("FDTLS already in handshake state\n");
+  } else {
 
+    LOG_INFO("Init FDTLS\n");
+    fdtls_state = FDTLS_STATE_INIT;
+    curr_network_process = PROCESS_CURRENT();
 
+    
+    dtls_init();
+    dst_session.addr = dest_ipaddr;
+    dst_session.port = UDP_SERVER_PORT;
+
+    static dtls_handler_t cb = {
+      .write = send_to_peer,
+      .read  = read_from_peer,
+      .event = dtls_complete,
+  #if DTLS_PSK
+    .get_psk_info = get_psk_info,
+  #endif /* DTLS_PSK */
+  #if DTLS_ECC
+            .get_ecdsa_key = get_ecdsa_key,
+            .verify_ecdsa_key = verify_ecdsa_key
+  #endif /* DTLS_ECC */
+          };
+
+    dtls_context = dtls_new_context(&udp_conn);
+
+    if (dtls_context)
+      dtls_set_handler(dtls_context, &cb);
+    else {
+      printf("cannot create context\n");
+      PT_EXIT(pt);
+    }
+
+    client_send("fdtls_init\0", 12);
+
+    LOG_INFO("Waiting for server FDTLS handshake ready\n");
+    while (1)
+    {
+      memset(recvbuf, 0, sizeof(recvbuf));
+      curr_network_process = PROCESS_CURRENT();
+      PT_WAIT_UNTIL(pt, crecvbuf_len > 0);
+      int len = client_recv(recvbuf);
+
+      if (len > 0 && !strcmp(recvbuf, "fdtls_hs_r\0")) {
+        curr_network_process = NULL;
+        LOG_INFO("fdtls_handshake_ready\n");
+        break;
+      }
+    }
+
+    LOG_INFO("Start FDTLS handshake\n");
+    fdtls_state = FDTLS_STATE_START;
+    dtls_connect(dtls_context, &dst_session);
+
+    // curr_network_process = PROCESS_CURRENT();
+    PT_WAIT_UNTIL(pt, fdtls_state == FDTLS_STATE_HANDSHAKE);
+    LOG_INFO("FDTLS handshake done\n");
+  }
   PT_END(pt);
 }
 
@@ -329,6 +403,7 @@ struct shell_command_t builtin_shell_commands[] = {
   { "reboot",         cmd_reboot, "'> help': Reboot the node" },
   { "ping",           cmd_ping, "'> help': Ping the server" },
   { "init_fdtls",     cmd_init_fdtls, "'> help': init_fdtls"},
+  
   // { "fdtls",                cmd_fdtls,                "'> help': cmd_fdtls"},
   { NULL, NULL, NULL }
 };
@@ -394,7 +469,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
   while(1) {
 
     // if(waiting_for_shell_input){
-    if(fdtls_state == FDTLS_STATE_HANDSHAKE){
+    if(fdtls_state >= FDTLS_STATE_UDPCONN){
       snprintf(sendbuf, sizeof(sendbuf), "sh");
       simple_udp_send(&udp_conn, sendbuf, strlen(sendbuf));
 
@@ -453,66 +528,10 @@ PROCESS_THREAD(udp_client_process, ev, data)
         int len = client_recv(recvbuf);
         if (len > 0 && !strcmp(recvbuf, "ack\0")) {
           LOG_INFO("Connected to server\n");
+          fdtls_state = FDTLS_STATE_UDPCONN;
         } else {
           goto exit;
         }
-
-        LOG_INFO("Init FDTLS\n");
-        curr_network_process = PROCESS_CURRENT();
-
-        
-        dtls_init();
-        dst_session.addr = dest_ipaddr;
-        dst_session.port = UDP_SERVER_PORT;
-
-        static dtls_handler_t cb = {
-          .write = send_to_peer,
-          .read  = read_from_peer,
-          .event = dtls_complete,
-#if DTLS_PSK
-          .get_psk_info = get_psk_info,
-#endif /* DTLS_PSK */
-#if DTLS_ECC
-          .get_ecdsa_key = get_ecdsa_key,
-          .verify_ecdsa_key = verify_ecdsa_key
-#endif /* DTLS_ECC */
-        };
-
-        dtls_context = dtls_new_context(&udp_conn);
-
-        if (dtls_context)
-          dtls_set_handler(dtls_context, &cb);
-        else {
-          printf("cannot create context\n");
-          goto exit;
-        }
-
-        client_send("fdtls_init\0", 12);
-
-        LOG_INFO("Waiting for server FDTLS handshake ready\n");
-        while (1)
-        {
-          memset(recvbuf, 0, sizeof(recvbuf));
-          PROCESS_WAIT_EVENT_UNTIL(crecvbuf_len > 0);
-          int len = client_recv(recvbuf);
-
-          if (len > 0 && !strcmp(recvbuf, "fdtls_hs_r\0")) {
-            curr_network_process = NULL;
-            LOG_INFO("fdtls_handshake_ready\n");
-            break;
-          }
-        }
-
-        LOG_INFO("Start FDTLS handshake\n");
-
-        fdtls_state = FDTLS_STATE_START;
-        dtls_connect(dtls_context, &dst_session);
-
-        PROCESS_YIELD_UNTIL(fdtls_state == FDTLS_STATE_HANDSHAKE);
-        LOG_INFO("FDTLS handshake done\n");
-
-        
-
       } else {
         LOG_INFO("Not reachable yet\n");
         etimer_set(&periodic_timer, 5 * CLOCK_SECOND);

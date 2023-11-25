@@ -68,6 +68,11 @@ AUTOSTART_PROCESSES(&udp_server_process);
 // }
 
 
+static int
+server_send_raw(void *data, size_t len) {
+  simple_udp_sendto(&udp_conn, data, len, &src_ipaddr);
+  return len;
+}
 
 static int
 server_send(void *data, size_t len) {
@@ -75,23 +80,43 @@ server_send(void *data, size_t len) {
   // LOG_INFO_6ADDR(&src_ipaddr);
   // LOG_INFO_("\n");
   
-  simple_udp_sendto(&udp_conn, data, len, &src_ipaddr);
+  if (fdtls_state >= FDTLS_STATE_HANDSHAKE) {
+    dtls_write(dtls_context, &src_session, (uint8_t *)data, len);
+  } else {
+    server_send_raw(data, len);
+  }
   return len;
+}
+
+static int
+server_recv_handler(char *recvbuf, uint16_t datalen) {
+  if (datalen > 0) {
+    if (!strcmp(recvbuf, "sh\0")) {
+      // Waiting for client shell input. Do nothing.
+    } else if (!strcmp(recvbuf, "ping\0")) {
+      // Ping from client.
+      server_send("pong\0", 10);
+    } else {
+      // Strange input from client.
+      LOG_INFO("Which is a strange request\n");
+    }
+  }
+  return 0;
 }
 
 static int
 read_from_peer(struct dtls_context_t *ctx, 
 	       session_t *session, uint8_t *data, size_t len) {
-  size_t i;
   
+  LOG_INFO("read_from_peer: %s(%llu)\n", (char*) data, len);
+  server_recv_handler((char *)data, len);
   return 0;
 }
 
 static int
 send_to_peer(struct dtls_context_t *ctx, 
 	     session_t *session, uint8_t *data, size_t len) {
-  
-  return server_send(data, len);
+  return server_send_raw(data, len);
 }
 
 #if DTLS_PSK
@@ -219,22 +244,19 @@ udp_rx_callback(struct simple_udp_connection *c,
   memset(recvbuf, 0, sizeof(recvbuf));
   memcpy(recvbuf, data, datalen);
 
-  if (datalen > 0) {
-    if (!strcmp(recvbuf, "syn\0")) {
-      // Hello from client.
-      src_ipaddr = *sender_addr;
-      server_send("ack\0", 10);
-      LOG_INFO("Connected to client\n");
-    } else if (!strcmp(recvbuf, "sh\0")) {
-      // Waiting for client shell input. Do nothing.
-    } else if (!strcmp(recvbuf, "fdtls_init\0")) {
-      // Initialize DTLS context.
-      dtls_init();
+  if (!strcmp(recvbuf, "syn\0")) {
+    // Hello from client.
+    src_ipaddr = *sender_addr;
+    server_send("ack\0", 10);
+    LOG_INFO("Connected to client\n");
+  } else if (!strcmp(recvbuf, "fdtls_init\0")) {
+    // Initialize DTLS context.
+    dtls_init();
 
-      static dtls_handler_t cb = {
-        .write = send_to_peer,
-        .read  = read_from_peer,
-        .event = dtls_complete,
+    static dtls_handler_t cb = {
+      .write = send_to_peer,
+      .read  = read_from_peer,
+      .event = dtls_complete,
 #if DTLS_PSK
         .get_psk_info = get_psk_info,
 #endif /* DTLS_PSK */
@@ -242,26 +264,19 @@ udp_rx_callback(struct simple_udp_connection *c,
         .get_ecdsa_key = get_ecdsa_key,
         .verify_ecdsa_key = verify_ecdsa_key
 #endif /* DTLS_ECC */
-      };
-      dtls_context = dtls_new_context(&udp_conn);
-      if (dtls_context)
-          dtls_set_handler(dtls_context, &cb);
-      
-      src_session.addr = src_ipaddr;
-      fdtls_state = FDTLS_STATE_START;
-      LOG_INFO("fdtls_handshake_ready\n");
-      server_send("fdtls_hs_r\0", 12);
-    } 
-    else if (fdtls_state > FDTLS_STATE_INIT) {
-      dtls_handle_message(dtls_context, &src_session, (uint8_t*) recvbuf, datalen);
-    }
-    else if (!strcmp(recvbuf, "ping\0")) {
-      // Ping from client.
-      server_send("pong\0", 10);
-    } else {
-      // Strange input from client.
-      LOG_INFO("Which is a strange request\n");
-    }
+    };
+    dtls_context = dtls_new_context(&udp_conn);
+    if (dtls_context)
+        dtls_set_handler(dtls_context, &cb);
+    
+    src_session.addr = src_ipaddr;
+    fdtls_state = FDTLS_STATE_START;
+    LOG_INFO("fdtls_handshake_ready\n");
+    server_send("fdtls_hs_r\0", 12);
+  } else if (fdtls_state > FDTLS_STATE_INIT) {
+    dtls_handle_message(dtls_context, &src_session, (uint8_t*) recvbuf, datalen);
+  } else {
+    server_recv_handler(recvbuf, datalen);
   }
 
   process_poll(&udp_server_process);
