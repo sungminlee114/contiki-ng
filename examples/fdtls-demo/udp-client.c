@@ -61,16 +61,13 @@ udp_rx_callback(struct simple_udp_connection *c,
     memset(crecvbuf, 0, sizeof(crecvbuf));
     memcpy(crecvbuf, data, datalen);
     crecvbuf_len = datalen;
-    LOG_INFO_(" (%d)\n", crecvbuf_len);
-    LOG_INFO("Current process IS NULL: %d\n", curr_network_process == NULL);
     if (curr_network_process != NULL){
       process_poll(curr_network_process);
     } else if (fdtls_state > FDTLS_STATE_INIT) {
-      LOG_INFO("dtls_handle_message fdtls_state: %d\n", fdtls_state);
       dtls_handle_message(dtls_context, &dst_session, (uint8_t*) data, datalen);
       crecvbuf_len = 0;
     } else {
-      LOG_INFO("fdtls_state: %d\n", fdtls_state);
+      LOG_INFO("cli udp_rx_callback: fdtls_state: %d\n", fdtls_state);
     }
   } else {
     // LOG_INFO_(" (empty)\n");
@@ -200,7 +197,6 @@ dtls_complete(struct dtls_context_t *ctx, session_t *session, dtls_alert_level_t
   if(code == DTLS_EVENT_CONNECTED) {
     // handshake_complete = 1;
     fdtls_state = FDTLS_STATE_HANDSHAKE;
-    printf("handshake_complete!\n");
     //struct etimer et;
     // etimer_set(&handshake_timer,CLOCK_SECOND*5);
 
@@ -513,6 +509,9 @@ PROCESS_THREAD(udp_client_process, ev, data)
         dtls_connect(dtls_context, &dst_session);
 
         PROCESS_YIELD_UNTIL(fdtls_state == FDTLS_STATE_HANDSHAKE);
+        LOG_INFO("FDTLS handshake done\n");
+
+        
 
       } else {
         LOG_INFO("Not reachable yet\n");

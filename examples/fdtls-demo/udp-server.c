@@ -71,9 +71,9 @@ AUTOSTART_PROCESSES(&udp_server_process);
 
 static int
 server_send(void *data, size_t len) {
-  LOG_INFO("server_send: %s(%lu) to ", (char*) data, len);
-  LOG_INFO_6ADDR(&src_ipaddr);
-  LOG_INFO_("\n");
+  // LOG_INFO("server_send: %s(%lu) to ", (char*) data, len);
+  // LOG_INFO_6ADDR(&src_ipaddr);
+  // LOG_INFO_("\n");
   
   simple_udp_sendto(&udp_conn, data, len, &src_ipaddr);
   return len;
@@ -83,10 +83,7 @@ static int
 read_from_peer(struct dtls_context_t *ctx, 
 	       session_t *session, uint8_t *data, size_t len) {
   size_t i;
-  printf("read_from_peer: %s(%lu)\n", (char*) data, len);
-  for (i = 0; i < len; i++)
-    printf("%c", data[i]);
-  printf("\n");
+  
   return 0;
 }
 
@@ -94,7 +91,6 @@ static int
 send_to_peer(struct dtls_context_t *ctx, 
 	     session_t *session, uint8_t *data, size_t len) {
   
-  printf("send_to_peer: %s(%lu)\n", (char*) data, len);
   return server_send(data, len);
 }
 
@@ -192,7 +188,6 @@ dtls_complete(struct dtls_context_t *ctx, session_t *session, dtls_alert_level_t
 
   if(code == DTLS_EVENT_CONNECTED) {
     fdtls_state = FDTLS_STATE_HANDSHAKE;
-    printf("handshake_complete!\n");
     //struct etimer et;
     // timer_set(&handshake_timer,CLOCK_SECOND*5);
 
@@ -215,7 +210,7 @@ udp_rx_callback(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-  LOG_INFO("Received request '%.*s' from ", datalen, (char *) data);
+  LOG_INFO("Received response '%.*s'(%d) from ", datalen, (char *) data, datalen);
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
   // simple_udp_sendto(&udp_conn, data, datalen, sender_addr);
@@ -225,7 +220,6 @@ udp_rx_callback(struct simple_udp_connection *c,
   memcpy(recvbuf, data, datalen);
 
   if (datalen > 0) {
-    LOG_INFO("Received request '%.*s'\n", datalen, recvbuf);
     if (!strcmp(recvbuf, "syn\0")) {
       // Hello from client.
       src_ipaddr = *sender_addr;
@@ -236,7 +230,6 @@ udp_rx_callback(struct simple_udp_connection *c,
     } else if (!strcmp(recvbuf, "fdtls_init\0")) {
       // Initialize DTLS context.
       dtls_init();
-      server_send("012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678978901234567890123456789012345678901234567890123456789012345678901234567890123456", 250);
 
       static dtls_handler_t cb = {
         .write = send_to_peer,
@@ -254,11 +247,10 @@ udp_rx_callback(struct simple_udp_connection *c,
       if (dtls_context)
           dtls_set_handler(dtls_context, &cb);
       
-      LOG_INFO("fdtls_handshake_ready\n");
-      server_send("fdtls_hs_r\0", 12);
-      LOG_INFO("fdtls_handshake_ready send done\n");
       src_session.addr = src_ipaddr;
       fdtls_state = FDTLS_STATE_START;
+      LOG_INFO("fdtls_handshake_ready\n");
+      server_send("fdtls_hs_r\0", 12);
     } 
     else if (fdtls_state > FDTLS_STATE_INIT) {
       dtls_handle_message(dtls_context, &src_session, (uint8_t*) recvbuf, datalen);
