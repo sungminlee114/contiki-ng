@@ -6,13 +6,16 @@
 #include "net/ipv6/simple-udp.h"
 #include "dev/serial-line.h"
 
+#define LOG_MODULE "App"
+#define LOG_LEVEL LOG_LEVEL_INFO
+
+#include "sys/log.h"
 #include "net/security/tinydtls/tinydtls.h"
+#include "net/security/tinydtls/dtls.h"
+#include "net/security/tinydtls/dtls-log.h"
 #include "shell.h"
 #include "project-conf.h"
 
-#include "sys/log.h"
-#define LOG_MODULE "App"
-#define LOG_LEVEL LOG_LEVEL_INFO
 
 #define WITH_SERVER_REPLY  1
 #define UDP_CLIENT_PORT	8765
@@ -50,14 +53,14 @@ static int fdtls_state = FDTLS_STATE_NONE;
 static int
 client_recv_handler(char* recvbuf, uint16_t datalen){
   memset(crecvbuf, 0, sizeof(crecvbuf));
-  memcpy(crecvbuf, recvbuf, datalen);
+  strcpy(crecvbuf, recvbuf);
   crecvbuf_len = datalen;
 
-  LOG_INFO("Client recv handler: %s(%d)\n", recvbuf, crecvbuf_len);
-  LOG_INFO("curr_network_process: %p\n", curr_network_process);
+  // LOG_INFO("Client recv handler: %s(%d)\n", recvbuf, crecvbuf_len);
   if (curr_network_process != NULL){
     process_poll(curr_network_process);
   }
+  return datalen;
 }
 
 static void
@@ -77,9 +80,9 @@ udp_rx_callback(struct simple_udp_connection *c,
   if (datalen > 0) {
     if (fdtls_state > FDTLS_STATE_INIT) {
       dtls_handle_message(dtls_context, &dst_session, (uint8_t*) data, datalen);
-      if (fdtls_state < FDTLS_STATE_HANDSHAKE) {
-        crecvbuf_len = 0;
-      }
+      // if (fdtls_state < FDTLS_STATE_HANDSHAKE) {
+        // crecvbuf_len = 0;
+      // }
     } else {
       client_recv_handler((char *) data, datalen);
     }
@@ -92,7 +95,8 @@ static int
 client_recv(char *buf)
 {
   if (crecvbuf_len > 0) {
-    memcpy(buf, crecvbuf, crecvbuf_len);
+    // memcpy(buf, crecvbuf, crecvbuf_len);
+    strcpy(buf, crecvbuf);
     int ret = crecvbuf_len;
     crecvbuf_len = 0;
     return ret;
@@ -176,8 +180,10 @@ static int
 read_from_peer(struct dtls_context_t *ctx, 
 	       session_t *session, uint8_t *data, size_t len) {
   
-  LOG_INFO("read_from_peer: %s(%llu)\n", (char*) data, len);
-  client_recv_handler((char *) data, len);
+  char cdata[PAYLOAD];
+  snprintf(cdata, len+1, "%s", data);
+  // LOG_INFO("read_from_peer: %s(%u)\n", cdata, len);
+  client_recv_handler(cdata, len);
   return 0;
 }
 
@@ -191,46 +197,13 @@ send_to_peer(struct dtls_context_t *ctx,
   return client_send_raw((char *) data, len);
 }
 
-// static int
-// dtls_handle_read(struct dtls_context_t *ctx) {
-  
-//   static uint8_t buf[RX_BUF_SIZE];
-//   int len;
-
-//   printf("dtls_handle_read\n");
-//   if(uip_newdata()) {
-//     printf("uip_newdata\n");
-//     uip_ipaddr_copy(&session.addr, &UIP_IP_BUF->srcipaddr);
-//     session.port = UIP_UDP_BUF->srcport;
-
-//     len = uip_datalen();
-
-//     if (len > sizeof(buf)) {
-//       // dtls_warn("packet is too large");
-//       return dtls_alert_fatal_create(DTLS_ALERT_INTERNAL_ERROR);
-//     }
-
-//     memcpy(buf, uip_appdata, len);
-//     printf("buf: %s\n", buf);
-//   }
-//   return 
-// }
-
 static int
 dtls_complete(struct dtls_context_t *ctx, session_t *session, dtls_alert_level_t level, unsigned short code){
 
   LOG_INFO("dtls_complete: alert %d, code %d in state %d\n", level, code, fdtls_state);
   if(code == DTLS_EVENT_CONNECTED) {
-    // handshake_complete = 1;
     fdtls_state = FDTLS_STATE_HANDSHAKE;
     process_poll(PROCESS_CURRENT());
-    //struct etimer et;
-    // etimer_set(&handshake_timer,CLOCK_SECOND*5);
-
-    //buflen = sizeof(buf);
-    //dtls_write(ctx, session, (uint8 *)buf, buflen);
-    //rtimer_count = rtimer_arch_now();
-    //printf("send packet\n");
   }
   return 0;
 }
@@ -402,9 +375,91 @@ PT_THREAD(cmd_init_fdtls(struct pt *pt, char* args))
     // curr_network_process = PROCESS_CURRENT();
     PT_WAIT_UNTIL(pt, fdtls_state == FDTLS_STATE_HANDSHAKE);
     LOG_INFO("FDTLS handshake done\n");
+
   }
   PT_END(pt);
 }
+
+static
+PT_THREAD(cmd_prepare_data(struct pt* pt, char* args)){
+  char sendbuf[PAYLOAD];
+  PT_BEGIN(pt);
+  
+  if(fdtls_state < FDTLS_STATE_HANDSHAKE){
+    LOG_INFO("FDTLS not ready\n");
+  } else {
+    // if null
+    if (args == NULL){
+      char def[PAYLOAD];
+      snprintf(def, sizeof(def), "Hello Sweden! Nice too be here!");
+      SHELL_OUTPUT("No input data. Set '%s' as default\n", def);
+
+      // snprintf(temp, sizeof(temp), "Hello Sweden!");//
+      args = def;
+    } else {
+      // SHELL_OUTPUT("cmd_prepare_data received %s as input data\n", args);
+    }
+
+    SHELL_OUTPUT("Requesting server to prepare data '%s'\n", args);
+
+    curr_network_process = PROCESS_CURRENT();
+    
+    memset(sendbuf, 0, sizeof(sendbuf));
+    snprintf(sendbuf, sizeof(sendbuf), "pd %s", args);
+    client_send(sendbuf, strlen(sendbuf));
+    
+    PT_WAIT_UNTIL(pt, crecvbuf_len > 0);
+    curr_network_process = NULL;
+
+    memset(sendbuf, 0, sizeof(sendbuf));
+    int len = client_recv(sendbuf);
+    if (len > 0) {
+      SHELL_OUTPUT("Received response '%.*s'\n", len, sendbuf);
+    }
+    
+
+    // SHELL_OUTPUT("Preparing '%s' to send\n", args);
+
+    // cfs_prepare_data(dtls_context,&dst_session,(uint8_t*)args);
+  }
+
+  PT_END(pt);
+}
+
+static
+PT_THREAD(cmd_request_fdtls(struct pt* pt, char* args)){
+  char recvbuf[PAYLOAD];
+  PT_BEGIN(pt);
+
+  SHELL_OUTPUT("Requesting server to send prepared data\n");
+
+  curr_network_process = PROCESS_CURRENT();
+  client_send("qd\0", 10);
+
+  while (1)
+  {
+    curr_network_process = PROCESS_CURRENT();
+    PT_WAIT_UNTIL(pt, crecvbuf_len > 0);
+
+    curr_network_process = NULL;
+    int len = client_recv(recvbuf);
+    
+    // SHELL_OUTPUT("Received response '%s'(%d)\n", recvbuf, len);
+
+    if (len > 0 && !strcmp(recvbuf, "done\0")) {
+      break;
+    }
+    
+    if (len > 0) {
+      SHELL_OUTPUT("Received decrypted response '%.*s'\n", len, recvbuf);
+    }
+  }
+
+  SHELL_OUTPUT("Done!\n");
+
+  PT_END(pt);
+}
+
 
 
 /* -------------------- cmd functions end -------------------- */
@@ -413,43 +468,13 @@ struct shell_command_t builtin_shell_commands[] = {
   { "help",           cmd_help, "'> help': Shows this help" },
   { "reboot",         cmd_reboot, "'> help': Reboot the node" },
   { "ping",           cmd_ping, "'> help': Ping the server" },
-  { "init_fdtls",     cmd_init_fdtls, "'> help': init_fdtls"},
+  { "init_fdtls",     cmd_init_fdtls, "'> help': Perform dtls handshake and create a virtual peer for dtls."},
+  { "prepare_data",   cmd_prepare_data, "'> help': Notify the server to prepare data."},
+  { "request_data",  cmd_request_fdtls,  "'> help': Request the prepared data from the server using fdtls."},
   
   // { "fdtls",                cmd_fdtls,                "'> help': cmd_fdtls"},
   { NULL, NULL, NULL }
 };
-
-struct shell_command_t*
-handle_shell_input(const char *cmd)
-{
-  static char *args;
-
-  /* Shave off any leading spaces. */
-  while(*cmd == ' ') {
-    cmd++;
-  }
-
-  /* Ignore empty lines */
-  if(*cmd == '\0') {
-    return NULL;
-  }
-
-  args = strchr(cmd, ' ');
-  if(args != NULL) {
-    *args = '\0';
-    args++;
-  }
-
-  for(int i = 0; builtin_shell_commands[i].name != NULL; i++) {
-    if (strcmp(builtin_shell_commands[i].name, cmd) == 0) {
-      return &builtin_shell_commands[i];
-    }
-  }
-
-  return NULL;
-}
-
-// int waiting_for_shell_input = 0;
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_client_process, ev, data)
@@ -458,15 +483,9 @@ PROCESS_THREAD(udp_client_process, ev, data)
   static char sendbuf[PAYLOAD];
   static char recvbuf[PAYLOAD];
   static struct shell_command_t *cmd_descr = NULL;
+  static char* args;
 
   PROCESS_BEGIN();
-
-  // // dest_ipaddr to my global ipv6 address
-  // uip_ip6addr_copy(&dest_ipaddr, &uip_ds6_if.addr_list[1].ipaddr);
-
-  // LOG_INFO("Destination address: ");
-  // LOG_INFO_6ADDR(&dest_ipaddr);
-  // LOG_INFO_("\n");
 
   LOG_INFO("Current process: %s\n", PROCESS_CURRENT()->name);
 
@@ -486,12 +505,33 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
       SHELL_OUTPUT("> ");
       PROCESS_WAIT_EVENT_UNTIL(ev == serial_line_event_message && data != NULL);
+      
+      char* cmd = data;
 
-      cmd_descr = handle_shell_input(data);
+      /* Shave off any leading spaces. */
+      while(*cmd == ' ') {
+        cmd++;
+      }
+
+      /* Ignore empty lines */
+      if(*cmd == '\0') {
+        continue;
+      }
+
+      args = strchr(cmd, ' ');
+      if(args != NULL) {
+        *args = '\0';
+        args++;
+      }
+
+      for(int i = 0; builtin_shell_commands[i].name != NULL; i++) {
+        if (strcmp(builtin_shell_commands[i].name, cmd) == 0) {
+          cmd_descr = &builtin_shell_commands[i];
+        }
+      }
 
       if (cmd_descr != NULL && cmd_descr->func != NULL) {
-        PROCESS_PT_SPAWN(&cmd_handler_pt, cmd_descr->func(&cmd_handler_pt, NULL));
-
+        PROCESS_PT_SPAWN(&cmd_handler_pt, cmd_descr->func(&cmd_handler_pt, args));
       } else {
         SHELL_OUTPUT("Command not found. Type 'help' for a list of commands\n");
       }

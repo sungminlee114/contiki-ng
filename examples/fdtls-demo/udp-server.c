@@ -33,7 +33,9 @@
 #include "net/ipv6/simple-udp.h"
 
 #include "net/security/tinydtls/tinydtls.h"
+#include "net/security/tinydtls/dtls.h"
 #include "project-conf.h"
+#include "cfs-coffee.h"
 
 #include "sys/log.h"
 #define LOG_MODULE "App"
@@ -57,7 +59,12 @@ static int fdtls_state = FDTLS_STATE_INIT;
 #define DTLS_ECC 0
 #define DTLS_PSK 1
 
+session_t *vir_sess;
+#define PSK_DEFAULT_IDENTITY "Client_identity"
+char to_send[20][32];
+int num_send = 0;
 
+static struct etimer p_timer;
 
 PROCESS(udp_server_process, "UDP server");
 AUTOSTART_PROCESSES(&udp_server_process);
@@ -97,9 +104,28 @@ server_recv_handler(char *recvbuf, uint16_t datalen) {
     } else if (!strcmp(recvbuf, "ping\0")) {
       // Ping from client.
       server_send("pong\0", 10);
+    
+    // Check recvbuf starts with "pd "
+    } else if (recvbuf[0] == 'p' && recvbuf[1] == 'd' && recvbuf[2] == ' ') {
+      // prepare data with specific string
+      char *str = recvbuf + 3;
+      LOG_INFO("Received prepare data request: %s\n", str);
+      cfs_prepare_data(dtls_context,vir_sess, str);
+
+      server_send("done\0", 10);
+    } else if (recvbuf[0] == 'q' && recvbuf[1] == 'd'){
+      LOG_INFO("Received query data request\n");
+
+      for (int i = 0; i < num_send; i++) {
+        server_send(to_send[i], strlen(to_send[i]));
+      }
+      server_send("done\0", 10);
     } else {
       // Strange input from client.
       LOG_INFO("Which is a strange request\n");
+      for (int i = 0; i < datalen; i++) {
+        LOG_INFO("%c, %d\n", recvbuf[i], recvbuf[i] == 'p');
+      }
     }
   }
   return 0;
@@ -109,8 +135,10 @@ static int
 read_from_peer(struct dtls_context_t *ctx, 
 	       session_t *session, uint8_t *data, size_t len) {
   
-  LOG_INFO("read_from_peer: %s(%llu)\n", (char*) data, len);
-  server_recv_handler((char *)data, len);
+  char cdata[PAYLOAD];
+  snprintf(cdata, len+1, "%s", data);
+  // LOG_INFO("read_from_peer: %s(%u)\n", cdata, len);
+  server_recv_handler(cdata, len);
   return 0;
 }
 
@@ -225,6 +253,48 @@ dtls_complete(struct dtls_context_t *ctx, session_t *session, dtls_alert_level_t
   return 0;
 }
 
+#define FILENAME "fdtls"
+cfs_prepare_data(struct dtls_context_t *ctx, session_t *session, char* msg){
+
+  char sendbuf[PAYLOAD];
+  int i;
+
+  // cfs_coffee_reserve(FILENAME,4096);
+  // int fd = cfs_open(FILENAME,CFS_WRITE);
+  
+  LOG_INFO("Batching msg by ' ' as delimiter\n");
+  msg = strtok(msg, " ");
+  for(i=0; ; i++){
+    if (msg == NULL) {
+      break;
+    }
+    LOG_INFO("iteration: %d: encrypted %s\n", i, msg);
+    // memset(sendbuf, 0, sizeof(sendbuf));
+    
+    // dtls_encrypt_data(ctx,session,msg,sizeof(msg),sendbuf,sizeof(sendbuf));
+
+    // if(fd >= 0){
+    //     int res = cfs_write(fd,sendbuf+21,PAYLOAD-21);
+
+    //     if(res < 0){
+    //       printf("maximum size: BUF_SIZE*i = %d\n",PAYLOAD*i);
+    //       printf("iteration: %d\n", i);
+    //       return -1;
+    //     }
+    // }
+
+    memset(to_send[i], 0, sizeof(to_send[i]));
+    snprintf(to_send[i], sizeof(to_send[i]), "%s", msg);
+    num_send = i+1;
+
+    if (i == 0) {
+      LOG_INFO("First batch. Writing headers too..\n");
+    }
+
+    msg = strtok(NULL, " ");
+  }
+  // cfs_close(fd);
+}
 
 
 static void
@@ -270,10 +340,23 @@ udp_rx_callback(struct simple_udp_connection *c,
     if (dtls_context)
         dtls_set_handler(dtls_context, &cb);
     
+    LOG_INFO("Creating virtual peer..\n");
+
+    // if(create_virtual_peer(dtls_context,vir_sess, PSK_DEFAULT_IDENTITY ,15) != 0){
+    //   LOG_ERR("create virtual peer error\n");
+    // }
+    
+    LOG_INFO("Creating self key block using virtual peer.\n");
+    // calculate_key_block_self(dtls_context,vir_sess);
+    
+
     src_session.addr = src_ipaddr;
     fdtls_state = FDTLS_STATE_START;
-    LOG_INFO("fdtls_handshake_ready\n");
+    LOG_INFO("FDTLS handshake done\n");
     server_send("fdtls_hs_r\0", 12);
+
+
+
   } else if (fdtls_state > FDTLS_STATE_INIT) {
     dtls_handle_message(dtls_context, &src_session, (uint8_t*) recvbuf, datalen);
   } else {

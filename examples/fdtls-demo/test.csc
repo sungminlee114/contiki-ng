@@ -133,6 +133,12 @@ write(cli, "init_fdtls");
 GENERATE_MSG(100000, "continue");
 YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
 write(cli, "ping");
+
+GENERATE_MSG(100000, "continue");
+YIELD_THEN_WAIT_UNTIL(msg.equals("continue"));
+write(cli, "prepare_data Hello_Stockholm!");
+
+
 </script>
       <active>true</active>
     </plugin_config>
